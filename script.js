@@ -46,6 +46,7 @@ const state = {
   streak: 0,
   solved: 0,
   currentQuestion: null,
+  queuedQuestion: null,
   boardTool: "pen",
   isLoadingQuestion: false,
   pendingQuestionAdvance: false,
@@ -472,8 +473,10 @@ function updateScoreboard() {
 }
 
 function loadQuestion() {
-  state.currentQuestion = createQuestion();
-  state.currentQuestionSource = "local";
+  const usingQueuedQuestion = Boolean(state.queuedQuestion);
+  state.currentQuestion = state.queuedQuestion || createQuestion();
+  state.queuedQuestion = null;
+  state.currentQuestionSource = usingQueuedQuestion ? "gemini" : "local";
   equationText.textContent = state.currentQuestion.prompt;
   equationHint.textContent = state.currentQuestion.hint;
   setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
@@ -501,25 +504,29 @@ async function loadQuestionWithGemini(options = {}) {
   }
 
   try {
-    state.currentQuestion = await generateGeminiQuestion();
-    state.currentQuestionSource = "gemini";
-    equationText.textContent = state.currentQuestion.prompt;
-    equationHint.textContent = state.currentQuestion.hint;
-    setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
-    answerInput.value = "";
-    workingInput.value = "";
-    clearBoard();
-    clearOverlay();
-    state.pendingQuestionAdvance = false;
-    setStatus(
-      preserveCurrent ? "Gemini question is ready now." : "Gemini question ready.",
-      "is-success",
-    );
+    const geminiQuestion = await generateGeminiQuestion();
+    if (preserveCurrent) {
+      state.queuedQuestion = geminiQuestion;
+      setStatus("Gemini has prepared your next question.", "is-success");
+    } else {
+      state.currentQuestion = geminiQuestion;
+      state.currentQuestionSource = "gemini";
+      equationText.textContent = state.currentQuestion.prompt;
+      equationHint.textContent = state.currentQuestion.hint;
+      setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
+      answerInput.value = "";
+      workingInput.value = "";
+      clearBoard();
+      clearOverlay();
+      state.pendingQuestionAdvance = false;
+      setStatus("Gemini question ready.", "is-success");
+    }
   } catch (error) {
     if (!preserveCurrent) {
       loadQuestion();
       setStatus(`Gemini is unavailable, so I loaded a local question instead. ${error.message}`, "is-error");
     } else {
+      state.queuedQuestion = null;
       setStatus(`Still using the quick local question while Gemini warms up. ${error.message}`, "is-error");
     }
   } finally {
@@ -853,13 +860,15 @@ skipButton.addEventListener("click", async () => {
   loadQuestion();
   setStatus(
     state.pendingQuestionAdvance
-      ? "Quick next question loaded. Gemini is preparing another one in the background..."
-      : "Quick local question loaded. Gemini is preparing another one in the background...",
+      ? "Next question loaded. Gemini is preparing another one in the background..."
+      : "Question loaded. Gemini is preparing another one in the background...",
     "",
   );
   await loadQuestionWithGemini({
     preserveCurrent: true,
-    statusMessage: "Quick question ready. Gemini is still loading in the background...",
+    statusMessage: state.queuedQuestion
+      ? "Using the prepared Gemini question. Gemini is preparing another one in the background..."
+      : "Question ready. Gemini is still loading in the background...",
   });
 });
 
