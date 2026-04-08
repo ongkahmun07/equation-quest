@@ -59,6 +59,7 @@ const boardContext = whiteboardCanvas.getContext("2d");
 const overlayContext = whiteboardOverlay.getContext("2d");
 let isDrawing = false;
 let lastDrawPoint = null;
+let lastMidPoint = null;
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -662,7 +663,45 @@ function getPoint(event) {
   const bounds = whiteboardCanvas.getBoundingClientRect();
   return {
     x: event.clientX - bounds.left,
-    y: event.clientY - bounds.top,
+      y: event.clientY - bounds.top,
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getBoardPoint(event) {
+  const point = getPoint(event);
+  const pressure = typeof event.pressure === "number" && event.pressure > 0
+    ? clamp(event.pressure, 0.08, 1)
+    : 0.5;
+
+  return {
+    ...point,
+    pressure,
+  };
+}
+
+function getMidPoint(firstPoint, secondPoint) {
+  return {
+    x: (firstPoint.x + secondPoint.x) / 2,
+    y: (firstPoint.y + secondPoint.y) / 2,
+    pressure: (firstPoint.pressure + secondPoint.pressure) / 2,
+  };
+}
+
+function smoothPoint(point) {
+  if (!lastDrawPoint) {
+    return point;
+  }
+
+  const smoothing = state.boardTool === "eraser" ? 0.52 : 0.38;
+
+  return {
+    x: lastDrawPoint.x + (point.x - lastDrawPoint.x) * smoothing,
+    y: lastDrawPoint.y + (point.y - lastDrawPoint.y) * smoothing,
+    pressure: lastDrawPoint.pressure + (point.pressure - lastDrawPoint.pressure) * smoothing,
   };
 }
 
@@ -680,52 +719,61 @@ function warnNonPenInput() {
   setStatus("Use Apple Pencil / pen input on the whiteboard.", "");
 }
 
-function configureBrush() {
+function configureBrush(point) {
   boardContext.lineCap = "round";
   boardContext.lineJoin = "round";
+  boardContext.imageSmoothingEnabled = true;
 
   if (state.boardTool === "eraser") {
     boardContext.globalCompositeOperation = "destination-out";
-    boardContext.lineWidth = 26;
+    boardContext.lineWidth = 24;
   } else {
     boardContext.globalCompositeOperation = "source-over";
     boardContext.strokeStyle = "#f8fbff";
-    boardContext.lineWidth = 3.5;
+    boardContext.lineWidth = 2.8 + ((point?.pressure ?? 0.5) * 1.8);
   }
 }
 
 function drawStrokeSegment(point) {
-  configureBrush();
+  const nextPoint = smoothPoint(point);
+  configureBrush(nextPoint);
 
   if (!lastDrawPoint) {
     boardContext.beginPath();
-    boardContext.arc(point.x, point.y, boardContext.lineWidth / 2, 0, Math.PI * 2);
+    boardContext.arc(nextPoint.x, nextPoint.y, boardContext.lineWidth / 2, 0, Math.PI * 2);
     boardContext.fillStyle = state.boardTool === "eraser" ? "rgba(0,0,0,1)" : "#f8fbff";
-    if (state.boardTool === "eraser") {
-      boardContext.fill();
-    } else {
-      boardContext.fill();
-    }
-    lastDrawPoint = point;
+    boardContext.fill();
+    lastDrawPoint = nextPoint;
+    lastMidPoint = nextPoint;
     return;
   }
 
-  const midPoint = {
-    x: (lastDrawPoint.x + point.x) / 2,
-    y: (lastDrawPoint.y + point.y) / 2,
-  };
+  const midPoint = getMidPoint(lastDrawPoint, nextPoint);
 
   boardContext.beginPath();
-  boardContext.moveTo(lastDrawPoint.x, lastDrawPoint.y);
+  boardContext.moveTo(lastMidPoint.x, lastMidPoint.y);
   boardContext.quadraticCurveTo(lastDrawPoint.x, lastDrawPoint.y, midPoint.x, midPoint.y);
   boardContext.stroke();
-  lastDrawPoint = point;
+  lastDrawPoint = nextPoint;
+  lastMidPoint = midPoint;
+}
+
+function finishStroke() {
+  if (!lastDrawPoint || !lastMidPoint) {
+    return;
+  }
+
+  configureBrush(lastDrawPoint);
+  boardContext.beginPath();
+  boardContext.moveTo(lastMidPoint.x, lastMidPoint.y);
+  boardContext.lineTo(lastDrawPoint.x, lastDrawPoint.y);
+  boardContext.stroke();
 }
 
 function drawPoint(event) {
   const events = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
   for (const currentEvent of events) {
-    drawStrokeSegment(getPoint(currentEvent));
+    drawStrokeSegment(getBoardPoint(currentEvent));
   }
 }
 
@@ -737,8 +785,9 @@ function startDrawing(event) {
   event.preventDefault();
   isDrawing = true;
   whiteboardCanvas.setPointerCapture(event.pointerId);
-  const point = getPoint(event);
+  const point = getBoardPoint(event);
   lastDrawPoint = point;
+  lastMidPoint = point;
   drawStrokeSegment(point);
 }
 
@@ -757,8 +806,10 @@ function stopDrawing(event) {
     whiteboardCanvas.releasePointerCapture(event.pointerId);
   }
 
+  finishStroke();
   isDrawing = false;
   lastDrawPoint = null;
+  lastMidPoint = null;
 }
 
 function setBoardTool(tool) {
@@ -916,6 +967,14 @@ whiteboardCanvas.addEventListener("pointermove", (event) => {
   }
 
   if (!isAllowedPointer(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  drawPoint(event);
+});
+whiteboardCanvas.addEventListener("pointerrawupdate", (event) => {
+  if (!isDrawing || !isAllowedPointer(event)) {
     return;
   }
 
