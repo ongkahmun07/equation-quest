@@ -638,7 +638,7 @@ function resizeCanvas() {
   const ratio = window.devicePixelRatio || 1;
   const frameBounds = whiteboardFrame.getBoundingClientRect();
   const canvasWidth = Math.max(frameBounds.width - 2, 960);
-  const canvasHeight = 960;
+  const canvasHeight = 1400;
 
   whiteboardCanvas.width = canvasWidth * ratio;
   whiteboardCanvas.height = canvasHeight * ratio;
@@ -807,12 +807,6 @@ function startDrawing(event) {
   lastDrawPoint = point;
   lastMidPoint = point;
   drawStrokeSegment(point);
-}
-
-function suppressTouchSelection(event) {
-  if (event.pointerType === "touch") {
-    event.preventDefault();
-  }
 }
 
 function stopDrawing(event) {
@@ -1009,7 +1003,12 @@ whiteboardCanvas.addEventListener("pointerdown", (event) => {
     warnNonPenInput();
   }
 });
-whiteboardPanel.addEventListener("pointerdown", suppressTouchSelection);
+whiteboardFrame.addEventListener("selectstart", (event) => {
+  event.preventDefault();
+});
+whiteboardCanvas.addEventListener("dragstart", (event) => {
+  event.preventDefault();
+});
 window.addEventListener("resize", resizeCanvas);
 
 checkBoardButton.addEventListener("click", async () => {
