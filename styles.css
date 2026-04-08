@@ -366,17 +366,23 @@ textarea {
     var(--surface-strong);
   padding: 22px;
   min-height: 100%;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .whiteboard-title {
   margin-top: 8px;
   font-size: clamp(1.4rem, 3vw, 2rem);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .whiteboard-tip {
   margin: 14px 0 0;
   color: var(--muted);
   line-height: 1.7;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .whiteboard-frame {
@@ -434,6 +440,8 @@ textarea {
   font-weight: 700;
   cursor: pointer;
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .tool-button:hover,

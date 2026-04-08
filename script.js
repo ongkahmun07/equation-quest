@@ -14,6 +14,7 @@ const difficultyChips = document.getElementById("difficultyChips");
 const whiteboardCanvas = document.getElementById("whiteboardCanvas");
 const whiteboardOverlay = document.getElementById("whiteboardOverlay");
 const whiteboardFrame = document.getElementById("whiteboardFrame");
+const whiteboardPanel = document.querySelector(".whiteboard-panel");
 const boardTools = document.getElementById("boardTools");
 const workingInput = document.getElementById("workingInput");
 const checkBoardButton = document.getElementById("checkBoardButton");
@@ -744,6 +745,12 @@ function startDrawing(event) {
   drawStrokeSegment(point);
 }
 
+function suppressTouchSelection(event) {
+  if (event.pointerType === "touch") {
+    event.preventDefault();
+  }
+}
+
 function stopDrawing(event) {
   if (!isDrawing) {
     return;
@@ -932,6 +939,7 @@ whiteboardCanvas.addEventListener("pointerdown", (event) => {
     warnNonPenInput();
   }
 });
+whiteboardPanel.addEventListener("pointerdown", suppressTouchSelection);
 window.addEventListener("resize", resizeCanvas);
 
 checkBoardButton.addEventListener("click", async () => {
