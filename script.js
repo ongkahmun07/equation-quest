@@ -781,6 +781,10 @@ function isLikelyStylusTouch(event) {
 }
 
 function shouldAcceptPointer(event) {
+  if (state.boardTool === "scroll") {
+    return false;
+  }
+
   if (event.pointerType === "pen") {
     return true;
   }
@@ -799,7 +803,12 @@ function warnNonPenInput() {
   }
 
   state.lastInputWarningAt = now;
-  setStatus("Apple Pencil is preferred on the whiteboard. Large finger touches are ignored.", "");
+  setStatus(
+    state.boardTool === "scroll"
+      ? "Scroll mode is on. Switch back to Pen to write."
+      : "Apple Pencil is preferred on the whiteboard. Large finger touches are ignored.",
+    "",
+  );
 }
 
 function configureBrush(point) {
@@ -897,6 +906,12 @@ function setBoardTool(tool) {
   document.querySelectorAll(".tool-button[data-tool]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.tool === tool);
   });
+
+  whiteboardCanvas.classList.toggle("is-scroll-mode", tool === "scroll");
+
+  if (tool === "scroll") {
+    stopDrawing();
+  }
 }
 
 function setBoardFullscreen(isFullscreen) {

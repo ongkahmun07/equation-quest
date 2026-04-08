@@ -492,7 +492,7 @@ textarea {
   width: 100%;
   min-width: 900px;
   height: 1200px;
-  touch-action: pan-y pan-x;
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
@@ -501,6 +501,11 @@ textarea {
 
 #whiteboardCanvas {
   cursor: crosshair;
+}
+
+#whiteboardCanvas.is-scroll-mode {
+  touch-action: pan-y pan-x;
+  cursor: grab;
 }
 
 #whiteboardOverlay {
