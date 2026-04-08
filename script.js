@@ -50,6 +50,7 @@ const state = {
   isLoadingQuestion: false,
   pendingQuestionAdvance: false,
   lastInputWarningAt: 0,
+  currentQuestionSource: "local",
 };
 
 const boardContext = whiteboardCanvas.getContext("2d");
@@ -472,6 +473,7 @@ function updateScoreboard() {
 
 function loadQuestion() {
   state.currentQuestion = createQuestion();
+  state.currentQuestionSource = "local";
   equationText.textContent = state.currentQuestion.prompt;
   equationHint.textContent = state.currentQuestion.hint;
   setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
@@ -483,15 +485,24 @@ function loadQuestion() {
   answerInput.focus();
 }
 
-async function loadQuestionWithGemini() {
+async function loadQuestionWithGemini(options = {}) {
+  const {
+    preserveCurrent = false,
+    statusMessage = "Loading a new Gemini question...",
+  } = options;
+
   state.isLoadingQuestion = true;
   setControlsDisabled(true);
-  setStatus("Loading a new Gemini question...", "");
-  equationText.textContent = "Preparing your next challenge...";
-  equationHint.textContent = "Gemini is creating a Primary 6 question for you.";
+  setStatus(statusMessage, "");
+
+  if (!preserveCurrent) {
+    equationText.textContent = "Preparing your next challenge...";
+    equationHint.textContent = "Gemini is creating a Primary 6 question for you.";
+  }
 
   try {
     state.currentQuestion = await generateGeminiQuestion();
+    state.currentQuestionSource = "gemini";
     equationText.textContent = state.currentQuestion.prompt;
     equationHint.textContent = state.currentQuestion.hint;
     setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
@@ -500,10 +511,17 @@ async function loadQuestionWithGemini() {
     clearBoard();
     clearOverlay();
     state.pendingQuestionAdvance = false;
-    setStatus("Gemini question ready.", "is-success");
+    setStatus(
+      preserveCurrent ? "Gemini question is ready now." : "Gemini question ready.",
+      "is-success",
+    );
   } catch (error) {
-    loadQuestion();
-    setStatus(`Gemini is unavailable, so I loaded a local question instead. ${error.message}`, "is-error");
+    if (!preserveCurrent) {
+      loadQuestion();
+      setStatus(`Gemini is unavailable, so I loaded a local question instead. ${error.message}`, "is-error");
+    } else {
+      setStatus(`Still using the quick local question while Gemini warms up. ${error.message}`, "is-error");
+    }
   } finally {
     state.isLoadingQuestion = false;
     setControlsDisabled(false);
@@ -602,7 +620,11 @@ function setMode(mode) {
   });
 
   setStatus(`Switched to ${modeLabels[mode]}.`, "");
-  loadQuestionWithGemini();
+  loadQuestion();
+  loadQuestionWithGemini({
+    preserveCurrent: true,
+    statusMessage: "Showing a quick question first while Gemini prepares another one...",
+  });
 }
 
 function resizeCanvas() {
@@ -828,11 +850,17 @@ skipButton.addEventListener("click", async () => {
 
   state.streak = 0;
   updateScoreboard();
+  loadQuestion();
   setStatus(
-    state.pendingQuestionAdvance ? "Loading your next question..." : "Loading a fresh question...",
+    state.pendingQuestionAdvance
+      ? "Quick next question loaded. Gemini is preparing another one in the background..."
+      : "Quick local question loaded. Gemini is preparing another one in the background...",
     "",
   );
-  await loadQuestionWithGemini();
+  await loadQuestionWithGemini({
+    preserveCurrent: true,
+    statusMessage: "Quick question ready. Gemini is still loading in the background...",
+  });
 });
 
 showAnswerButton.addEventListener("click", () => {
@@ -928,4 +956,9 @@ checkBoardButton.addEventListener("click", async () => {
 
 updateScoreboard();
 resizeCanvas();
-loadQuestionWithGemini();
+loadQuestion();
+setStatus("Quick question ready. Gemini is loading in the background...", "");
+loadQuestionWithGemini({
+  preserveCurrent: true,
+  statusMessage: "Quick question ready. Gemini is loading in the background...",
+});
