@@ -542,7 +542,6 @@ function loadQuestion() {
   equationText.textContent = state.currentQuestion.prompt;
   equationHint.textContent = state.currentQuestion.hint;
   setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
-  clearBoard();
   clearOverlay();
   state.pendingQuestionAdvance = false;
 }
@@ -573,7 +572,6 @@ async function loadQuestionWithGemini(options = {}) {
       equationText.textContent = state.currentQuestion.prompt;
       equationHint.textContent = state.currentQuestion.hint;
       setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
-      clearBoard();
       clearOverlay();
       state.pendingQuestionAdvance = false;
       setStatus("Gemini question ready.", "is-success");
