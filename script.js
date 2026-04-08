@@ -56,7 +56,7 @@ const state = {
   pendingQuestionAdvance: false,
   lastInputWarningAt: 0,
   currentQuestionSource: "local",
-  isBoardFullscreen: false,
+  isBoardFullscreen: true,
 };
 
 const boardContext = whiteboardCanvas.getContext("2d");
@@ -652,10 +652,12 @@ function setMode(mode) {
 }
 
 function resizeCanvas() {
-  const ratio = window.devicePixelRatio || 1;
+  const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
   const frameBounds = whiteboardFrame.getBoundingClientRect();
   const canvasWidth = Math.max(frameBounds.width - 2, 960);
-  const canvasHeight = state.isBoardFullscreen ? 2200 : 1400;
+  const canvasHeight = state.isBoardFullscreen
+    ? Math.max(window.innerHeight + 420, 1500)
+    : 1200;
   const boardSnapshot = captureCanvasSnapshot(whiteboardCanvas);
   const overlaySnapshot = captureCanvasSnapshot(whiteboardOverlay);
 
@@ -1118,6 +1120,6 @@ checkBoardButton.addEventListener("click", async () => {
 });
 
 updateScoreboard();
-resizeCanvas();
+setBoardFullscreen(true);
 loadQuestion();
 setStatus("Quick question ready. Gemini is used only when checking work or the whiteboard.", "");

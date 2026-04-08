@@ -445,7 +445,7 @@ textarea {
 
 .whiteboard-stage {
   position: relative;
-  min-height: 1400px;
+  min-height: 1200px;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -455,7 +455,7 @@ textarea {
   display: block;
   width: 100%;
   min-width: 900px;
-  height: 1400px;
+  height: 1200px;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -565,13 +565,13 @@ textarea {
   }
 
   .whiteboard-stage {
-    min-height: 1100px;
+    min-height: 980px;
   }
 
   #whiteboardCanvas,
   #whiteboardOverlay {
     min-width: 760px;
-    height: 1100px;
+    height: 980px;
   }
 
   .whiteboard-panel.is-fullscreen {
