@@ -11,6 +11,8 @@ const maxRequestsPerWindow = 20;
 const maxPromptLength = 4000;
 const maxInlineImageBytes = 5 * 1024 * 1024;
 const maxRequestBodyLength = 8 * 1024 * 1024;
+const geminiModels = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const retryDelayMs = 1200;
 const ipRequestLog = new Map();
 
 const mimeTypes = {
@@ -122,33 +124,12 @@ async function handleGenerate(req, res) {
       });
     }
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts,
-          },
-        ],
-      }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      const message = data?.error?.message || "Gemini request failed.";
-      sendJson(res, response.status, { error: message });
-      return;
-    }
-
-    const text = extractText(data);
+    const text = await generateWithFallback(parts);
     sendJson(res, 200, { text });
-  } catch {
-    sendJson(res, 500, { error: "Unable to reach the Gemini API from this server." });
+  } catch (error) {
+    sendJson(res, error.statusCode || 500, {
+      error: error.message || "Unable to reach the Gemini API from this server.",
+    });
   }
 }
 
@@ -167,6 +148,79 @@ function extractText(data) {
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
+}
+
+async function generateWithFallback(parts) {
+  let lastError = null;
+
+  for (const model of geminiModels) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await requestGemini(model, parts);
+      } catch (error) {
+        lastError = error;
+
+        if (!isRetryableGeminiError(error)) {
+          throw error;
+        }
+
+        if (attempt === 0) {
+          await delay(retryDelayMs);
+        }
+      }
+    }
+  }
+
+  throw lastError || createServerError("Unable to reach the Gemini API from this server.", 500);
+}
+
+async function requestGemini(model, parts) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts,
+        },
+      ],
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const message = data?.error?.message || "Gemini request failed.";
+    throw createServerError(message, response.status);
+  }
+
+  return extractText(data);
+}
+
+function isRetryableGeminiError(error) {
+  const statusCode = Number(error?.statusCode);
+  const message = String(error?.message || "").toLowerCase();
+
+  if ([429, 500, 502, 503, 504].includes(statusCode)) {
+    return true;
+  }
+
+  return message.includes("high demand") || message.includes("overloaded") || message.includes("unavailable");
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function createServerError(message, statusCode) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
 }
 
 function getClientIp(req) {
