@@ -4,6 +4,10 @@ const equationText = document.getElementById("equationText");
 const equationHint = document.getElementById("equationHint");
 const statusText = document.getElementById("statusText");
 const tipText = document.getElementById("tipText");
+const fullscreenQuestionText = document.getElementById("fullscreenQuestionText");
+const fullscreenHintText = document.getElementById("fullscreenHintText");
+const fullscreenStatusText = document.getElementById("fullscreenStatusText");
+const fullscreenTipText = document.getElementById("fullscreenTipText");
 const scoreValue = document.getElementById("scoreValue");
 const streakValue = document.getElementById("streakValue");
 const solvedValue = document.getElementById("solvedValue");
@@ -406,8 +410,11 @@ function setControlsDisabled(disabled) {
 function setWorkingFeedback(message, tone = "") {
   tipText.textContent = message;
   tipText.classList.remove("is-success", "is-error");
+  fullscreenTipText.textContent = message;
+  fullscreenTipText.classList.remove("is-success", "is-error");
   if (tone) {
     tipText.classList.add(tone);
+    fullscreenTipText.classList.add(tone);
   }
 }
 
@@ -467,9 +474,12 @@ function answersMatch(userAnswer, expectedAnswer) {
 function setStatus(message, tone = "") {
   statusText.textContent = message;
   statusText.classList.remove("is-success", "is-error");
+  fullscreenStatusText.textContent = message;
+  fullscreenStatusText.classList.remove("is-success", "is-error");
 
   if (tone) {
     statusText.classList.add(tone);
+    fullscreenStatusText.classList.add(tone);
   }
 }
 
@@ -499,6 +509,8 @@ function loadQuestion() {
   state.currentQuestionSource = usingQueuedQuestion ? "gemini" : "local";
   equationText.textContent = state.currentQuestion.prompt;
   equationHint.textContent = state.currentQuestion.hint;
+  fullscreenQuestionText.textContent = state.currentQuestion.prompt;
+  fullscreenHintText.textContent = state.currentQuestion.hint;
   setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
   answerInput.value = "";
   workingInput.value = "";
@@ -521,6 +533,8 @@ async function loadQuestionWithGemini(options = {}) {
   if (!preserveCurrent) {
     equationText.textContent = "Preparing your next challenge...";
     equationHint.textContent = "Gemini is creating a Primary 6 question for you.";
+    fullscreenQuestionText.textContent = "Preparing your next challenge...";
+    fullscreenHintText.textContent = "Gemini is creating a Primary 6 question for you.";
   }
 
   try {
@@ -533,6 +547,8 @@ async function loadQuestionWithGemini(options = {}) {
       state.currentQuestionSource = "gemini";
       equationText.textContent = state.currentQuestion.prompt;
       equationHint.textContent = state.currentQuestion.hint;
+      fullscreenQuestionText.textContent = state.currentQuestion.prompt;
+      fullscreenHintText.textContent = state.currentQuestion.hint;
       setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
       answerInput.value = "";
       workingInput.value = "";
