@@ -672,8 +672,8 @@ function resizeCanvas() {
   const frameBounds = whiteboardFrame.getBoundingClientRect();
   const canvasWidth = Math.max(frameBounds.width - 2, 960);
   const canvasHeight = state.isBoardFullscreen
-    ? Math.max(window.innerHeight + 420, 1500)
-    : 1200;
+    ? Math.max(window.innerHeight + 260, 1250)
+    : 1000;
   const boardSnapshot = captureCanvasSnapshot(whiteboardCanvas);
   const overlaySnapshot = captureCanvasSnapshot(whiteboardOverlay);
 
@@ -1069,14 +1069,6 @@ whiteboardCanvas.addEventListener("pointermove", (event) => {
   }
 
   if (event.pointerId !== activePointerId) {
-    return;
-  }
-
-  event.preventDefault();
-  drawPoint(event);
-});
-whiteboardCanvas.addEventListener("pointerrawupdate", (event) => {
-  if (!isDrawing || event.pointerId !== activePointerId) {
     return;
   }
 

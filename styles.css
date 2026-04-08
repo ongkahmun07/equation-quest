@@ -492,7 +492,7 @@ textarea {
   width: 100%;
   min-width: 900px;
   height: 1200px;
-  touch-action: none;
+  touch-action: pan-y pan-x;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
@@ -507,6 +507,7 @@ textarea {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  touch-action: none;
 }
 
 .tool-button {
