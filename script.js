@@ -941,7 +941,7 @@ checkBoardButton.addEventListener("click", async () => {
 
   setControlsDisabled(true);
   clearOverlay();
-  setStatus("Gemini is checking your handwriting...", "");
+  setStatus("Gemini is checking your work...", "");
 
   try {
     const result = await analyseWhiteboardWithGemini();
