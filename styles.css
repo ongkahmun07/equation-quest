@@ -42,6 +42,10 @@ body {
   -webkit-touch-callout: none;
 }
 
+body.has-fullscreen-board {
+  overflow: hidden;
+}
+
 body::before {
   content: "";
   position: fixed;
@@ -387,6 +391,18 @@ textarea {
   user-select: none;
 }
 
+.whiteboard-panel.is-fullscreen {
+  position: fixed;
+  inset: 14px;
+  z-index: 50;
+  border-radius: 28px;
+  padding: 26px;
+  background:
+    linear-gradient(180deg, rgba(62, 214, 255, 0.08), transparent 35%),
+    rgba(5, 16, 31, 0.98);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.52);
+}
+
 .whiteboard-title {
   margin-top: 8px;
   font-size: clamp(1.4rem, 3vw, 2rem);
@@ -421,6 +437,10 @@ textarea {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y pan-x;
+}
+
+.whiteboard-panel.is-fullscreen .whiteboard-frame {
+  height: calc(100vh - 190px);
 }
 
 .whiteboard-stage {
@@ -552,5 +572,14 @@ textarea {
   #whiteboardOverlay {
     min-width: 760px;
     height: 1100px;
+  }
+
+  .whiteboard-panel.is-fullscreen {
+    inset: 8px;
+    padding: 18px;
+  }
+
+  .whiteboard-panel.is-fullscreen .whiteboard-frame {
+    height: calc(100vh - 220px);
   }
 }

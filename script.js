@@ -14,16 +14,19 @@ const difficultyChips = document.getElementById("difficultyChips");
 const whiteboardCanvas = document.getElementById("whiteboardCanvas");
 const whiteboardOverlay = document.getElementById("whiteboardOverlay");
 const whiteboardFrame = document.getElementById("whiteboardFrame");
+const whiteboardStage = document.getElementById("whiteboardStage");
 const whiteboardPanel = document.querySelector(".whiteboard-panel");
 const boardTools = document.getElementById("boardTools");
 const workingInput = document.getElementById("workingInput");
 const checkBoardButton = document.getElementById("checkBoardButton");
+const fullscreenBoardButton = document.getElementById("fullscreenBoardButton");
 const controlsToDisable = [
   answerInput,
   workingInput,
   showAnswerButton,
   skipButton,
   checkBoardButton,
+  fullscreenBoardButton,
 ];
 const modeLabels = {
   mixed: "Mixed Practice",
@@ -53,6 +56,7 @@ const state = {
   pendingQuestionAdvance: false,
   lastInputWarningAt: 0,
   currentQuestionSource: "local",
+  isBoardFullscreen: false,
 };
 
 const boardContext = whiteboardCanvas.getContext("2d");
@@ -475,6 +479,19 @@ function updateScoreboard() {
   solvedValue.textContent = String(state.solved);
 }
 
+function captureCanvasSnapshot(sourceCanvas) {
+  if (!sourceCanvas.width || !sourceCanvas.height) {
+    return null;
+  }
+
+  const snapshot = document.createElement("canvas");
+  snapshot.width = sourceCanvas.width;
+  snapshot.height = sourceCanvas.height;
+  const snapshotContext = snapshot.getContext("2d");
+  snapshotContext.drawImage(sourceCanvas, 0, 0);
+  return snapshot;
+}
+
 function loadQuestion() {
   const usingQueuedQuestion = Boolean(state.queuedQuestion);
   state.currentQuestion = state.queuedQuestion || createQuestion();
@@ -638,7 +655,9 @@ function resizeCanvas() {
   const ratio = window.devicePixelRatio || 1;
   const frameBounds = whiteboardFrame.getBoundingClientRect();
   const canvasWidth = Math.max(frameBounds.width - 2, 960);
-  const canvasHeight = 1400;
+  const canvasHeight = state.isBoardFullscreen ? 2200 : 1400;
+  const boardSnapshot = captureCanvasSnapshot(whiteboardCanvas);
+  const overlaySnapshot = captureCanvasSnapshot(whiteboardOverlay);
 
   whiteboardCanvas.width = canvasWidth * ratio;
   whiteboardCanvas.height = canvasHeight * ratio;
@@ -654,6 +673,35 @@ function resizeCanvas() {
 
   clearBoard();
   clearOverlay();
+  whiteboardStage.style.minHeight = `${canvasHeight}px`;
+
+  if (boardSnapshot) {
+    boardContext.drawImage(
+      boardSnapshot,
+      0,
+      0,
+      boardSnapshot.width,
+      boardSnapshot.height,
+      0,
+      0,
+      whiteboardCanvas.width,
+      whiteboardCanvas.height,
+    );
+  }
+
+  if (overlaySnapshot) {
+    overlayContext.drawImage(
+      overlaySnapshot,
+      0,
+      0,
+      overlaySnapshot.width,
+      overlaySnapshot.height,
+      0,
+      0,
+      whiteboardOverlay.width,
+      whiteboardOverlay.height,
+    );
+  }
 }
 
 function clearBoard() {
@@ -833,6 +881,18 @@ function setBoardTool(tool) {
   });
 }
 
+function setBoardFullscreen(isFullscreen) {
+  state.isBoardFullscreen = isFullscreen;
+  whiteboardPanel.classList.toggle("is-fullscreen", isFullscreen);
+  document.body.classList.toggle("has-fullscreen-board", isFullscreen);
+  fullscreenBoardButton.textContent = isFullscreen ? "Exit Full Screen" : "Full Screen";
+  resizeCanvas();
+
+  if (isFullscreen) {
+    whiteboardFrame.scrollTop = 0;
+  }
+}
+
 answerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -963,6 +1023,17 @@ boardTools.addEventListener("click", (event) => {
     return;
   }
 
+  if (button.id === "fullscreenBoardButton") {
+    setBoardFullscreen(!state.isBoardFullscreen);
+    setStatus(
+      state.isBoardFullscreen
+        ? "Whiteboard is now full screen and scrollable."
+        : "Whiteboard returned to the normal layout.",
+      "",
+    );
+    return;
+  }
+
   if (button.id === "checkBoardButton") {
     return;
   }
@@ -1010,6 +1081,12 @@ whiteboardCanvas.addEventListener("dragstart", (event) => {
   event.preventDefault();
 });
 window.addEventListener("resize", resizeCanvas);
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.isBoardFullscreen) {
+    setBoardFullscreen(false);
+    setStatus("Whiteboard returned to the normal layout.", "");
+  }
+});
 
 checkBoardButton.addEventListener("click", async () => {
   if (state.isLoadingQuestion || !state.currentQuestion) {
