@@ -348,6 +348,56 @@ function parseJsonResponse(rawText) {
   return JSON.parse(cleaned);
 }
 
+function tryParseJsonObject(rawText) {
+  const directText = String(rawText || "").trim();
+  if (!directText) {
+    return null;
+  }
+
+  try {
+    return parseJsonResponse(directText);
+  } catch {
+    const firstBrace = directText.indexOf("{");
+    const lastBrace = directText.lastIndexOf("}");
+
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+      return null;
+    }
+
+    const candidate = directText.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function normaliseWhiteboardResult(result, rawText = "") {
+  const feedback = typeof result?.feedback === "string" && result.feedback.trim()
+    ? result.feedback.trim()
+    : String(rawText || "Whiteboard checked.").trim();
+
+  const hasError = Boolean(result?.hasError);
+  const circle = result?.circle && typeof result.circle === "object"
+    ? {
+        x: Number(result.circle.x),
+        y: Number(result.circle.y),
+        radius: Number(result.circle.radius),
+      }
+    : null;
+
+  const safeCircle = circle && [circle.x, circle.y, circle.radius].every((value) => Number.isFinite(value))
+    ? circle
+    : null;
+
+  return {
+    feedback,
+    hasError,
+    circle: safeCircle,
+  };
+}
+
 function normaliseQuestion(question) {
   return {
     prompt: String(question.prompt || question.question || "0 + 0 = ?"),
@@ -541,7 +591,17 @@ async function analyseWhiteboardWithGemini() {
   ].join("\n");
 
   const text = await askGeminiWithImage(prompt, base64Data, "image/png");
-  return parseJsonResponse(text);
+  const parsed = tryParseJsonObject(text);
+
+  if (parsed) {
+    return normaliseWhiteboardResult(parsed, text);
+  }
+
+  return normaliseWhiteboardResult({
+    feedback: text || "Whiteboard checked, but the reply was not structured clearly.",
+    hasError: false,
+    circle: null,
+  }, text);
 }
 
 function setMode(mode) {
