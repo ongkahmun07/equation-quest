@@ -60,6 +60,7 @@ const overlayContext = whiteboardOverlay.getContext("2d");
 let isDrawing = false;
 let lastDrawPoint = null;
 let lastMidPoint = null;
+let activePointerId = null;
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -705,8 +706,24 @@ function smoothPoint(point) {
   };
 }
 
-function isAllowedPointer(event) {
-  return event.pointerType === "pen";
+function isLikelyStylusTouch(event) {
+  const width = Number(event.width || 0);
+  const height = Number(event.height || 0);
+  const pressure = Number(event.pressure || 0);
+
+  return width <= 18 && height <= 18 && pressure <= 0.65;
+}
+
+function shouldAcceptPointer(event) {
+  if (event.pointerType === "pen") {
+    return true;
+  }
+
+  if (event.pointerType === "touch") {
+    return isLikelyStylusTouch(event);
+  }
+
+  return false;
 }
 
 function warnNonPenInput() {
@@ -716,7 +733,7 @@ function warnNonPenInput() {
   }
 
   state.lastInputWarningAt = now;
-  setStatus("Use Apple Pencil / pen input on the whiteboard.", "");
+  setStatus("Apple Pencil is preferred on the whiteboard. Large finger touches are ignored.", "");
 }
 
 function configureBrush(point) {
@@ -778,12 +795,13 @@ function drawPoint(event) {
 }
 
 function startDrawing(event) {
-  if (!isAllowedPointer(event)) {
+  if (!shouldAcceptPointer(event)) {
     return;
   }
 
   event.preventDefault();
   isDrawing = true;
+  activePointerId = event.pointerId;
   whiteboardCanvas.setPointerCapture(event.pointerId);
   const point = getBoardPoint(event);
   lastDrawPoint = point;
@@ -798,7 +816,7 @@ function suppressTouchSelection(event) {
 }
 
 function stopDrawing(event) {
-  if (!isDrawing) {
+  if (!isDrawing || (event?.pointerId !== undefined && event.pointerId !== activePointerId)) {
     return;
   }
 
@@ -810,6 +828,7 @@ function stopDrawing(event) {
   isDrawing = false;
   lastDrawPoint = null;
   lastMidPoint = null;
+  activePointerId = null;
 }
 
 function setBoardTool(tool) {
@@ -966,7 +985,7 @@ whiteboardCanvas.addEventListener("pointermove", (event) => {
     return;
   }
 
-  if (!isAllowedPointer(event)) {
+  if (event.pointerId !== activePointerId) {
     return;
   }
 
@@ -974,7 +993,7 @@ whiteboardCanvas.addEventListener("pointermove", (event) => {
   drawPoint(event);
 });
 whiteboardCanvas.addEventListener("pointerrawupdate", (event) => {
-  if (!isDrawing || !isAllowedPointer(event)) {
+  if (!isDrawing || event.pointerId !== activePointerId) {
     return;
   }
 
@@ -986,7 +1005,7 @@ whiteboardCanvas.addEventListener("pointerup", stopDrawing);
 whiteboardCanvas.addEventListener("pointerleave", stopDrawing);
 whiteboardCanvas.addEventListener("pointercancel", stopDrawing);
 whiteboardCanvas.addEventListener("pointerdown", (event) => {
-  if (!isAllowedPointer(event)) {
+  if (!shouldAcceptPointer(event)) {
     warnNonPenInput();
   }
 });
