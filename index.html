@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Equation Quest</title>
+  <meta name="description" content="A cool Primary 6 math practice website with interactive equations, score tracking, and a playful dashboard.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-glow page-glow-left"></div>
+  <div class="page-glow page-glow-right"></div>
+
+  <main class="app-shell">
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <p class="eyebrow">Primary 6 Math Mission</p>
+        <h1>Equation Quest</h1>
+        <p class="intro">
+          Train with fast, fun mathematics equations covering whole numbers, fractions, decimals, and percentages at up to Primary 6 level.
+        </p>
+      </div>
+
+      <div class="hero-stats">
+        <article class="stat-card">
+          <p class="stat-label">Score</p>
+          <p class="stat-value" id="scoreValue">0</p>
+        </article>
+        <article class="stat-card">
+          <p class="stat-label">Streak</p>
+          <p class="stat-value" id="streakValue">0</p>
+        </article>
+        <article class="stat-card">
+          <p class="stat-label">Solved</p>
+          <p class="stat-value" id="solvedValue">0</p>
+        </article>
+      </div>
+
+      <div class="level-strip" aria-label="Topics included">
+        <span>Multiplication</span>
+        <span>Division</span>
+        <span>Fractions</span>
+        <span>Decimals</span>
+        <span>Percentages</span>
+      </div>
+    </section>
+
+    <section class="practice-panel">
+      <div class="panel-top">
+        <div>
+          <p class="panel-label">Challenge Mode</p>
+          <h2 id="challengeTitle">Mixed Practice</h2>
+        </div>
+        <div class="chip-row" id="difficultyChips">
+          <button class="chip is-active" type="button" data-mode="mixed">Mixed</button>
+          <button class="chip" type="button" data-mode="numbers">Numbers</button>
+          <button class="chip" type="button" data-mode="fractions">Fractions</button>
+          <button class="chip" type="button" data-mode="decimals">Decimals</button>
+          <button class="chip" type="button" data-mode="percentages">Percentages</button>
+        </div>
+      </div>
+
+      <article class="equation-card">
+        <p class="equation-label">Solve this</p>
+        <p class="equation-text" id="equationText">36 + 19 = ?</p>
+        <p class="equation-hint" id="equationHint">Warm-up question loaded.</p>
+      </article>
+
+      <form class="answer-form" id="answerForm">
+        <label class="field-label" for="answerInput">Your answer</label>
+        <div class="answer-row">
+          <input id="answerInput" name="answer" type="text" inputmode="decimal" autocomplete="off" placeholder="Type your answer">
+          <button class="submit-button" type="submit">Check Answer</button>
+        </div>
+      </form>
+
+      <div class="action-row">
+        <button class="ghost-button" type="button" id="skipButton">New Question</button>
+        <button class="ghost-button" type="button" id="showAnswerButton">Show Answer</button>
+      </div>
+
+      <section class="whiteboard-panel">
+        <div class="whiteboard-header">
+          <div>
+            <p class="panel-label">Working Space</p>
+            <h2 class="whiteboard-title">Math Whiteboard</h2>
+          </div>
+          <div class="board-tools" id="boardTools">
+            <button class="tool-button is-active" type="button" data-tool="pen">Pen</button>
+            <button class="tool-button" type="button" data-tool="eraser">Eraser</button>
+            <button class="tool-button" type="button" id="clearBoardButton">Clear</button>
+          </div>
+        </div>
+        <p class="whiteboard-tip">Use your mouse, touchpad, or finger to write out your working before checking the answer.</p>
+        <div class="whiteboard-frame">
+          <canvas id="whiteboardCanvas" aria-label="Math working whiteboard"></canvas>
+        </div>
+        <div class="working-notes">
+          <label class="field-label" for="workingInput">Type your working</label>
+          <textarea id="workingInput" rows="5" placeholder="Example: 25% of 80 = 1/4 of 80 = 20"></textarea>
+        </div>
+      </section>
+
+      <section class="feedback-panel">
+        <div class="status-card">
+          <p class="panel-label">Status</p>
+          <p class="status-text" id="statusText">Ready for your first equation.</p>
+        </div>
+        <div class="tip-card">
+          <p class="panel-label">Working Feedback</p>
+          <p class="tip-text" id="tipText">Mixed mode gives you a fresh blend of Primary 6-style questions.</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
