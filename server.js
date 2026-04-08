@@ -5,7 +5,6 @@ const path = require("path");
 const rootDir = __dirname;
 const port = process.env.PORT || 3000;
 const env = loadEnvFile(path.join(rootDir, ".env"));
-const apiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY;
 const rateLimitWindowMs = 60 * 1000;
 const maxRequestsPerWindow = 20;
 const maxPromptLength = 4000;
@@ -55,8 +54,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 async function handleGenerate(req, res) {
+  const apiKey = getApiKey();
+
   if (!apiKey || apiKey === "your_gemini_api_key_here") {
-    sendJson(res, 500, { error: "Missing GEMINI_API_KEY in .env." });
+    sendJson(res, 500, { error: "Missing GEMINI_API_KEY in the server environment." });
     return;
   }
 
@@ -124,7 +125,7 @@ async function handleGenerate(req, res) {
       });
     }
 
-    const text = await generateWithFallback(parts);
+    const text = await generateWithFallback(parts, apiKey);
     sendJson(res, 200, { text });
   } catch (error) {
     sendJson(res, error.statusCode || 500, {
@@ -150,13 +151,13 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
-async function generateWithFallback(parts) {
+async function generateWithFallback(parts, apiKey) {
   let lastError = null;
 
   for (const model of geminiModels) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        return await requestGemini(model, parts);
+        return await requestGemini(model, parts, apiKey);
       } catch (error) {
         lastError = error;
 
@@ -174,7 +175,7 @@ async function generateWithFallback(parts) {
   throw lastError || createServerError("Unable to reach the Gemini API from this server.", 500);
 }
 
-async function requestGemini(model, parts) {
+async function requestGemini(model, parts, apiKey) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: {
@@ -279,11 +280,22 @@ function loadEnvFile(filePath) {
     }
 
     const key = trimmed.slice(0, separatorIndex).trim();
-    const value = trimmed.slice(separatorIndex + 1).trim();
+    const value = trimmed.slice(separatorIndex + 1).trim().replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
     result[key] = value;
   }
 
   return result;
+}
+
+function getApiKey() {
+  const runtimeKey = typeof process.env.GEMINI_API_KEY === "string"
+    ? process.env.GEMINI_API_KEY.trim()
+    : "";
+  const fileKey = typeof env.GEMINI_API_KEY === "string"
+    ? env.GEMINI_API_KEY.trim()
+    : "";
+
+  return runtimeKey || fileKey;
 }
 
 server.listen(port, "0.0.0.0", () => {
