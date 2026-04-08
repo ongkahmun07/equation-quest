@@ -1,5 +1,3 @@
-const answerForm = document.getElementById("answerForm");
-const answerInput = document.getElementById("answerInput");
 const equationText = document.getElementById("equationText");
 const equationHint = document.getElementById("equationHint");
 const statusText = document.getElementById("statusText");
@@ -17,11 +15,8 @@ const whiteboardFrame = document.getElementById("whiteboardFrame");
 const whiteboardStage = document.getElementById("whiteboardStage");
 const whiteboardPanel = document.querySelector(".whiteboard-panel");
 const boardTools = document.getElementById("boardTools");
-const workingInput = document.getElementById("workingInput");
 const checkBoardButton = document.getElementById("checkBoardButton");
 const controlsToDisable = [
-  answerInput,
-  workingInput,
   showAnswerButton,
   skipButton,
   checkBoardButton,
@@ -439,28 +434,6 @@ function drawErrorCircle(circle) {
   overlayContext.setLineDash([]);
 }
 
-function normaliseAnswer(value) {
-  return value.trim().replace(/\s+/g, "").replace(/,+/g, ".");
-}
-
-function answersMatch(userAnswer, expectedAnswer) {
-  const normalisedUser = normaliseAnswer(userAnswer);
-  const normalisedExpected = normaliseAnswer(expectedAnswer);
-
-  if (normalisedUser === normalisedExpected) {
-    return true;
-  }
-
-  const userNumber = Number(normalisedUser);
-  const expectedNumber = Number(normalisedExpected);
-
-  if (!Number.isNaN(userNumber) && !Number.isNaN(expectedNumber)) {
-    return Math.abs(userNumber - expectedNumber) < 0.0001;
-  }
-
-  return false;
-}
-
 function setStatus(message, tone = "") {
   statusText.textContent = message;
   statusText.classList.remove("is-success", "is-error");
@@ -497,12 +470,9 @@ function loadQuestion() {
   equationText.textContent = state.currentQuestion.prompt;
   equationHint.textContent = state.currentQuestion.hint;
   setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
-  answerInput.value = "";
-  workingInput.value = "";
   clearBoard();
   clearOverlay();
   state.pendingQuestionAdvance = false;
-  answerInput.focus();
 }
 
 async function loadQuestionWithGemini(options = {}) {
@@ -531,8 +501,6 @@ async function loadQuestionWithGemini(options = {}) {
       equationText.textContent = state.currentQuestion.prompt;
       equationHint.textContent = state.currentQuestion.hint;
       setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
-      answerInput.value = "";
-      workingInput.value = "";
       clearBoard();
       clearOverlay();
       state.pendingQuestionAdvance = false;
@@ -549,65 +517,7 @@ async function loadQuestionWithGemini(options = {}) {
   } finally {
     state.isLoadingQuestion = false;
     setControlsDisabled(false);
-    answerInput.focus();
   }
-}
-
-function analyseWorking() {
-  const working = workingInput.value.trim();
-
-  if (!working) {
-    return {
-      quality: "missing",
-      message: "Your final answer can be checked, but add typed working too so I can give feedback on your method.",
-    };
-  }
-
-  const normalisedWorking = working.toLowerCase().replace(/\s+/g, "");
-  const checks = state.currentQuestion.workingChecks || [];
-  const matches = checks.filter((check) => normalisedWorking.includes(String(check).toLowerCase().replace(/\s+/g, ""))).length;
-  const ratio = checks.length ? matches / checks.length : 0;
-
-  if (ratio >= 0.75) {
-    return {
-      quality: "strong",
-      message: `Your working shows the key parts of the method. ${state.currentQuestion.workingTip}`,
-    };
-  }
-
-  if (ratio >= 0.4) {
-    return {
-      quality: "partial",
-      message: `Your working is on the right track, but make the method clearer. ${state.currentQuestion.workingTip}`,
-    };
-  }
-
-  return {
-    quality: "weak",
-    message: `I cannot see the full method yet. ${state.currentQuestion.workingTip}`,
-  };
-}
-
-async function analyseWorkingWithGemini(userAnswer) {
-  const prompt = [
-    "You are reviewing a Primary 6 student's mathematics work.",
-    "Return only valid JSON with keys:",
-    'statusTone, statusMessage, workingTone, workingFeedback',
-    `Question: ${state.currentQuestion.prompt}`,
-    `Expected answer: ${state.currentQuestion.answer}`,
-    `Question hint: ${state.currentQuestion.hint}`,
-    `Student final answer: ${userAnswer}`,
-    `Student typed working: ${workingInput.value.trim() || "(none)"}`,
-    "Rules:",
-    "- statusTone must be success or error.",
-    "- workingTone must be success, neutral, or error.",
-    "- Give short, specific feedback about the method.",
-    "- Mention what is missing if the working is unclear.",
-    "- Do not use markdown fences.",
-  ].join("\n");
-
-  const text = await askGemini(prompt);
-  return parseJsonResponse(text);
 }
 
 async function analyseWhiteboardWithGemini() {
@@ -621,7 +531,6 @@ async function analyseWhiteboardWithGemini() {
     'feedback, hasError, circle',
     `Question: ${state.currentQuestion.prompt}`,
     `Expected answer: ${state.currentQuestion.answer}`,
-    `Typed working notes: ${workingInput.value.trim() || "(none)"}`,
     "Rules:",
     "- feedback should be short and specific.",
     "- hasError must be true or false.",
@@ -893,91 +802,6 @@ function setBoardTool(tool) {
   }
 }
 
-answerForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  if (state.isLoadingQuestion || !state.currentQuestion) {
-    return;
-  }
-
-  const userAnswer = answerInput.value.trim();
-  if (!userAnswer) {
-    setStatus("Type an answer before checking.", "is-error");
-    return;
-  }
-
-  setControlsDisabled(true);
-  setStatus("Checking your answer and working...", "");
-
-  const localWorkingFeedback = analyseWorking();
-
-  try {
-    const geminiFeedback = await analyseWorkingWithGemini(userAnswer);
-    const statusTone = geminiFeedback.statusTone === "success" ? "is-success" : "is-error";
-    const workingTone = geminiFeedback.workingTone === "success"
-      ? "is-success"
-      : geminiFeedback.workingTone === "error"
-        ? "is-error"
-        : "";
-
-    setWorkingFeedback(
-      String(geminiFeedback.workingFeedback || localWorkingFeedback.message),
-      workingTone,
-    );
-
-    const isCorrect = answersMatch(userAnswer, state.currentQuestion.answer);
-    if (isCorrect) {
-      state.score += 10;
-      state.streak += 1;
-      state.solved += 1;
-      state.pendingQuestionAdvance = true;
-      updateScoreboard();
-      setStatus(
-        String(geminiFeedback.statusMessage || `Correct. The answer is ${state.currentQuestion.answer}. Click New Question when you are ready.`),
-        statusTone,
-      );
-      return;
-    }
-
-    state.streak = 0;
-    updateScoreboard();
-    setStatus(
-      String(geminiFeedback.statusMessage || `Not quite. Try again or reveal the answer. ${localWorkingFeedback.message}`),
-      "is-error",
-    );
-    return;
-  } catch (error) {
-    const workingTone = localWorkingFeedback.quality === "strong"
-      ? "is-success"
-      : localWorkingFeedback.quality === "weak" || localWorkingFeedback.quality === "missing"
-        ? "is-error"
-        : "";
-    setWorkingFeedback(localWorkingFeedback.message, workingTone);
-
-    if (answersMatch(userAnswer, state.currentQuestion.answer)) {
-      state.score += 10;
-      state.streak += 1;
-      state.solved += 1;
-      state.pendingQuestionAdvance = true;
-      updateScoreboard();
-      setStatus(
-        `Correct. The answer is ${state.currentQuestion.answer}. Gemini feedback is unavailable right now, so local feedback is shown.`,
-        "is-success",
-      );
-      return;
-    }
-
-    state.streak = 0;
-    updateScoreboard();
-    setStatus(
-      `Not quite. ${localWorkingFeedback.message} Gemini feedback is unavailable right now: ${error.message}`,
-      "is-error",
-    );
-  } finally {
-    setControlsDisabled(false);
-  }
-});
-
 skipButton.addEventListener("click", async () => {
   if (state.isLoadingQuestion) {
     return;
@@ -998,7 +822,7 @@ skipButton.addEventListener("click", async () => {
 showAnswerButton.addEventListener("click", () => {
   state.streak = 0;
   updateScoreboard();
-  setStatus(`Answer shown: ${state.currentQuestion.answer}.`, "");
+  setStatus(`Answer shown: ${state.currentQuestion.answer}. Use the whiteboard to compare your method.`, "");
 });
 
 difficultyChips.addEventListener("click", (event) => {

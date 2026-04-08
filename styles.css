@@ -122,6 +122,13 @@ body::before {
   gap: 22px;
 }
 
+.left-column,
+.left-column *:not(input):not(textarea) {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .eyebrow,
 .panel-label,
 .field-label,
@@ -290,18 +297,6 @@ h2 {
 .equation-hint {
   margin: 16px 0 0;
   max-width: 56ch;
-}
-
-.answer-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.answer-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
 }
 
 input {
@@ -503,8 +498,35 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .whiteboard-panel {
+    order: -1;
+  }
+
   h1 {
     max-width: none;
+  }
+}
+
+@media (max-width: 1280px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .whiteboard-panel {
+    order: -1;
+  }
+
+  .whiteboard-frame {
+    height: 560px;
+  }
+
+  .whiteboard-stage {
+    min-height: 900px;
+  }
+
+  #whiteboardCanvas,
+  #whiteboardOverlay {
+    height: 900px;
   }
 }
 
@@ -520,7 +542,6 @@ textarea {
   }
 
   .hero-stats,
-  .answer-row,
   .panel-top {
     grid-template-columns: 1fr;
     display: grid;
