@@ -651,21 +651,13 @@ function smoothPoint(point) {
     return point;
   }
 
-  const smoothing = state.boardTool === "eraser" ? 0.52 : 0.38;
+  const smoothing = state.boardTool === "eraser" ? 0.72 : 0.82;
 
   return {
     x: lastDrawPoint.x + (point.x - lastDrawPoint.x) * smoothing,
     y: lastDrawPoint.y + (point.y - lastDrawPoint.y) * smoothing,
     pressure: lastDrawPoint.pressure + (point.pressure - lastDrawPoint.pressure) * smoothing,
   };
-}
-
-function isLikelyStylusTouch(event) {
-  const width = Number(event.width || 0);
-  const height = Number(event.height || 0);
-  const pressure = Number(event.pressure || 0);
-
-  return width <= 18 && height <= 18 && pressure <= 0.65;
 }
 
 function shouldAcceptPointer(event) {
@@ -678,7 +670,7 @@ function shouldAcceptPointer(event) {
   }
 
   if (event.pointerType === "touch") {
-    return isLikelyStylusTouch(event);
+    return true;
   }
 
   return false;
@@ -694,7 +686,7 @@ function warnNonPenInput() {
   setStatus(
     state.boardTool === "scroll"
       ? "Scroll mode is on. Switch back to Pen to write."
-      : "Apple Pencil is preferred on the whiteboard. Large finger touches are ignored.",
+      : "Pen mode is on. Use Scroll mode whenever you want to move the board.",
     "",
   );
 }
@@ -706,11 +698,11 @@ function configureBrush(point) {
 
   if (state.boardTool === "eraser") {
     boardContext.globalCompositeOperation = "destination-out";
-    boardContext.lineWidth = 24;
+    boardContext.lineWidth = 28;
   } else {
     boardContext.globalCompositeOperation = "source-over";
     boardContext.strokeStyle = "#f8fbff";
-    boardContext.lineWidth = 2.8 + ((point?.pressure ?? 0.5) * 1.8);
+    boardContext.lineWidth = 4.2 + ((point?.pressure ?? 0.5) * 2.4);
   }
 }
 
