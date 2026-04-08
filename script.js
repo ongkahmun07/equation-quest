@@ -651,7 +651,7 @@ function smoothPoint(point) {
     return point;
   }
 
-  const smoothing = state.boardTool === "eraser" ? 0.72 : 0.82;
+  const smoothing = state.boardTool === "eraser" ? 0.9 : 0.94;
 
   return {
     x: lastDrawPoint.x + (point.x - lastDrawPoint.x) * smoothing,
@@ -720,14 +720,12 @@ function drawStrokeSegment(point) {
     return;
   }
 
-  const midPoint = getMidPoint(lastDrawPoint, nextPoint);
-
   boardContext.beginPath();
-  boardContext.moveTo(lastMidPoint.x, lastMidPoint.y);
-  boardContext.quadraticCurveTo(lastDrawPoint.x, lastDrawPoint.y, midPoint.x, midPoint.y);
+  boardContext.moveTo(lastDrawPoint.x, lastDrawPoint.y);
+  boardContext.lineTo(nextPoint.x, nextPoint.y);
   boardContext.stroke();
   lastDrawPoint = nextPoint;
-  lastMidPoint = midPoint;
+  lastMidPoint = nextPoint;
 }
 
 function finishStroke() {
@@ -737,8 +735,8 @@ function finishStroke() {
 
   configureBrush(lastDrawPoint);
   boardContext.beginPath();
-  boardContext.moveTo(lastMidPoint.x, lastMidPoint.y);
-  boardContext.lineTo(lastDrawPoint.x, lastDrawPoint.y);
+  boardContext.moveTo(lastDrawPoint.x, lastDrawPoint.y);
+  boardContext.lineTo(lastDrawPoint.x + 0.01, lastDrawPoint.y + 0.01);
   boardContext.stroke();
 }
 
