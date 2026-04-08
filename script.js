@@ -49,6 +49,7 @@ const state = {
   boardTool: "pen",
   isLoadingQuestion: false,
   pendingQuestionAdvance: false,
+  lastInputWarningAt: 0,
 };
 
 const boardContext = whiteboardCanvas.getContext("2d");
@@ -637,6 +638,20 @@ function getPoint(event) {
   };
 }
 
+function isAllowedPointer(event) {
+  return event.pointerType === "pen";
+}
+
+function warnNonPenInput() {
+  const now = Date.now();
+  if (now - state.lastInputWarningAt < 2000) {
+    return;
+  }
+
+  state.lastInputWarningAt = now;
+  setStatus("Whiteboard drawing is set to Apple Pencil / pen input only.", "");
+}
+
 function drawPoint(event) {
   const point = getPoint(event);
   boardContext.lineCap = "round";
@@ -658,6 +673,11 @@ function drawPoint(event) {
 }
 
 function startDrawing(event) {
+  if (!isAllowedPointer(event)) {
+    warnNonPenInput();
+    return;
+  }
+
   event.preventDefault();
   isDrawing = true;
   whiteboardCanvas.setPointerCapture(event.pointerId);
@@ -827,6 +847,10 @@ whiteboardCanvas.addEventListener("pointerdown", (event) => {
 
 whiteboardCanvas.addEventListener("pointermove", (event) => {
   if (!isDrawing) {
+    return;
+  }
+
+  if (!isAllowedPointer(event)) {
     return;
   }
 
