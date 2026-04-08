@@ -4,10 +4,6 @@ const equationText = document.getElementById("equationText");
 const equationHint = document.getElementById("equationHint");
 const statusText = document.getElementById("statusText");
 const tipText = document.getElementById("tipText");
-const fullscreenQuestionText = document.getElementById("fullscreenQuestionText");
-const fullscreenHintText = document.getElementById("fullscreenHintText");
-const fullscreenStatusText = document.getElementById("fullscreenStatusText");
-const fullscreenTipText = document.getElementById("fullscreenTipText");
 const scoreValue = document.getElementById("scoreValue");
 const streakValue = document.getElementById("streakValue");
 const solvedValue = document.getElementById("solvedValue");
@@ -23,14 +19,12 @@ const whiteboardPanel = document.querySelector(".whiteboard-panel");
 const boardTools = document.getElementById("boardTools");
 const workingInput = document.getElementById("workingInput");
 const checkBoardButton = document.getElementById("checkBoardButton");
-const fullscreenBoardButton = document.getElementById("fullscreenBoardButton");
 const controlsToDisable = [
   answerInput,
   workingInput,
   showAnswerButton,
   skipButton,
   checkBoardButton,
-  fullscreenBoardButton,
 ];
 const modeLabels = {
   mixed: "Mixed Practice",
@@ -60,7 +54,6 @@ const state = {
   pendingQuestionAdvance: false,
   lastInputWarningAt: 0,
   currentQuestionSource: "local",
-  isBoardFullscreen: true,
 };
 
 const boardContext = whiteboardCanvas.getContext("2d");
@@ -410,11 +403,8 @@ function setControlsDisabled(disabled) {
 function setWorkingFeedback(message, tone = "") {
   tipText.textContent = message;
   tipText.classList.remove("is-success", "is-error");
-  fullscreenTipText.textContent = message;
-  fullscreenTipText.classList.remove("is-success", "is-error");
   if (tone) {
     tipText.classList.add(tone);
-    fullscreenTipText.classList.add(tone);
   }
 }
 
@@ -474,12 +464,9 @@ function answersMatch(userAnswer, expectedAnswer) {
 function setStatus(message, tone = "") {
   statusText.textContent = message;
   statusText.classList.remove("is-success", "is-error");
-  fullscreenStatusText.textContent = message;
-  fullscreenStatusText.classList.remove("is-success", "is-error");
 
   if (tone) {
     statusText.classList.add(tone);
-    fullscreenStatusText.classList.add(tone);
   }
 }
 
@@ -509,8 +496,6 @@ function loadQuestion() {
   state.currentQuestionSource = usingQueuedQuestion ? "gemini" : "local";
   equationText.textContent = state.currentQuestion.prompt;
   equationHint.textContent = state.currentQuestion.hint;
-  fullscreenQuestionText.textContent = state.currentQuestion.prompt;
-  fullscreenHintText.textContent = state.currentQuestion.hint;
   setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
   answerInput.value = "";
   workingInput.value = "";
@@ -533,8 +518,6 @@ async function loadQuestionWithGemini(options = {}) {
   if (!preserveCurrent) {
     equationText.textContent = "Preparing your next challenge...";
     equationHint.textContent = "Gemini is creating a Primary 6 question for you.";
-    fullscreenQuestionText.textContent = "Preparing your next challenge...";
-    fullscreenHintText.textContent = "Gemini is creating a Primary 6 question for you.";
   }
 
   try {
@@ -547,8 +530,6 @@ async function loadQuestionWithGemini(options = {}) {
       state.currentQuestionSource = "gemini";
       equationText.textContent = state.currentQuestion.prompt;
       equationHint.textContent = state.currentQuestion.hint;
-      fullscreenQuestionText.textContent = state.currentQuestion.prompt;
-      fullscreenHintText.textContent = state.currentQuestion.hint;
       setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
       answerInput.value = "";
       workingInput.value = "";
@@ -671,9 +652,7 @@ function resizeCanvas() {
   const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
   const frameBounds = whiteboardFrame.getBoundingClientRect();
   const canvasWidth = Math.max(frameBounds.width - 2, 960);
-  const canvasHeight = state.isBoardFullscreen
-    ? Math.max(window.innerHeight + 260, 1250)
-    : 1000;
+  const canvasHeight = window.innerWidth <= 720 ? 900 : 1050;
   const boardSnapshot = captureCanvasSnapshot(whiteboardCanvas);
   const overlaySnapshot = captureCanvasSnapshot(whiteboardOverlay);
 
@@ -914,18 +893,6 @@ function setBoardTool(tool) {
   }
 }
 
-function setBoardFullscreen(isFullscreen) {
-  state.isBoardFullscreen = isFullscreen;
-  whiteboardPanel.classList.toggle("is-fullscreen", isFullscreen);
-  document.body.classList.toggle("has-fullscreen-board", isFullscreen);
-  fullscreenBoardButton.textContent = isFullscreen ? "Exit Full Screen" : "Full Screen";
-  resizeCanvas();
-
-  if (isFullscreen) {
-    whiteboardFrame.scrollTop = 0;
-  }
-}
-
 answerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -1056,17 +1023,6 @@ boardTools.addEventListener("click", (event) => {
     return;
   }
 
-  if (button.id === "fullscreenBoardButton") {
-    setBoardFullscreen(!state.isBoardFullscreen);
-    setStatus(
-      state.isBoardFullscreen
-        ? "Whiteboard is now full screen and scrollable."
-        : "Whiteboard returned to the normal layout.",
-      "",
-    );
-    return;
-  }
-
   if (button.id === "checkBoardButton") {
     return;
   }
@@ -1106,12 +1062,6 @@ whiteboardCanvas.addEventListener("dragstart", (event) => {
   event.preventDefault();
 });
 window.addEventListener("resize", resizeCanvas);
-window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && state.isBoardFullscreen) {
-    setBoardFullscreen(false);
-    setStatus("Whiteboard returned to the normal layout.", "");
-  }
-});
 
 checkBoardButton.addEventListener("click", async () => {
   if (state.isLoadingQuestion || !state.currentQuestion) {
@@ -1143,6 +1093,6 @@ checkBoardButton.addEventListener("click", async () => {
 });
 
 updateScoreboard();
-setBoardFullscreen(true);
+resizeCanvas();
 loadQuestion();
 setStatus("Quick question ready. Gemini is used only when checking work or the whiteboard.", "");
