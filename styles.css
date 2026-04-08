@@ -237,6 +237,10 @@ h2 {
   justify-content: space-between;
 }
 
+.whiteboard-top {
+  padding-bottom: 42px;
+}
+
 .chip {
   cursor: pointer;
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
@@ -378,15 +382,16 @@ textarea {
 }
 
 .whiteboard-tip {
-  margin: 14px 0 0;
+  margin: 18px 0 0;
   color: var(--muted);
   line-height: 1.7;
   -webkit-user-select: none;
   user-select: none;
+  max-width: 40ch;
 }
 
 .whiteboard-frame {
-  margin-top: 18px;
+  margin-top: 8px;
   border-radius: 22px;
   overflow: auto;
   border: 1px solid rgba(124, 247, 212, 0.16);
@@ -505,6 +510,10 @@ textarea {
   .board-tools {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .whiteboard-top {
+    padding-bottom: 28px;
   }
 
   .submit-button,

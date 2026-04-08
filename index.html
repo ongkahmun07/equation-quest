@@ -102,19 +102,21 @@
         </div>
 
         <section class="whiteboard-panel">
-          <div class="whiteboard-header">
-            <div>
-              <p class="panel-label">Working Space</p>
-              <h2 class="whiteboard-title">Landscape Math Whiteboard</h2>
+          <div class="whiteboard-top">
+            <div class="whiteboard-header">
+              <div>
+                <p class="panel-label">Working Space</p>
+                <h2 class="whiteboard-title">Landscape Math Whiteboard</h2>
+              </div>
+              <div class="board-tools" id="boardTools">
+                <button class="tool-button is-active" type="button" data-tool="pen">Pen</button>
+                <button class="tool-button" type="button" data-tool="eraser">Eraser</button>
+                <button class="tool-button" type="button" id="checkBoardButton">Check Whiteboard</button>
+                <button class="tool-button" type="button" id="clearBoardButton">Clear</button>
+              </div>
             </div>
-            <div class="board-tools" id="boardTools">
-              <button class="tool-button is-active" type="button" data-tool="pen">Pen</button>
-              <button class="tool-button" type="button" data-tool="eraser">Eraser</button>
-              <button class="tool-button" type="button" id="checkBoardButton">Check Whiteboard</button>
-              <button class="tool-button" type="button" id="clearBoardButton">Clear</button>
-            </div>
+            <p class="whiteboard-tip">Write across the wide board, scroll down for more space, then let Gemini inspect the handwriting and circle the likely mistake.</p>
           </div>
-          <p class="whiteboard-tip">Write across the wide board, scroll down for more space, then let Gemini inspect the handwriting and circle the likely mistake.</p>
           <div class="whiteboard-frame" id="whiteboardFrame">
             <div class="whiteboard-stage" id="whiteboardStage">
               <canvas id="whiteboardCanvas" aria-label="Math working whiteboard"></canvas>
