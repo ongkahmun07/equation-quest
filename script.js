@@ -398,6 +398,28 @@ function normaliseWhiteboardResult(result, rawText = "") {
   };
 }
 
+function getFriendlyWhiteboardErrorMessage(error) {
+  const message = String(error?.message || "").toLowerCase();
+
+  if (message.includes("quota") || message.includes("exceeded your current quota")) {
+    return "Gemini whiteboard checking is temporarily unavailable because the quota is used up. You can still practise and use Show Answer.";
+  }
+
+  if (message.includes("high demand") || message.includes("overloaded") || message.includes("unavailable")) {
+    return "Gemini whiteboard checking is busy right now. Please try again in a little while.";
+  }
+
+  if (message.includes("too many requests")) {
+    return "Too many whiteboard checks were sent too quickly. Please wait a moment and try again.";
+  }
+
+  if (message.includes("missing gemini_api_key")) {
+    return "Gemini whiteboard checking is not configured on the server right now.";
+  }
+
+  return "Gemini whiteboard checking is unavailable right now. You can still practise and use Show Answer.";
+}
+
 function normaliseQuestion(question) {
   return {
     prompt: String(question.prompt || question.question || "0 + 0 = ?"),
@@ -960,7 +982,7 @@ checkBoardButton.addEventListener("click", async () => {
       result.hasError ? "is-error" : "is-success",
     );
   } catch (error) {
-    setStatus(`Whiteboard check failed: ${error.message}`, "is-error");
+    setStatus(getFriendlyWhiteboardErrorMessage(error), "is-error");
   } finally {
     setControlsDisabled(false);
   }
