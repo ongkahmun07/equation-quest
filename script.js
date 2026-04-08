@@ -10,7 +10,6 @@ const skipButton = document.getElementById("skipButton");
 const challengeTitle = document.getElementById("challengeTitle");
 const difficultyChips = document.getElementById("difficultyChips");
 const whiteboardCanvas = document.getElementById("whiteboardCanvas");
-const whiteboardOverlay = document.getElementById("whiteboardOverlay");
 const whiteboardFrame = document.getElementById("whiteboardFrame");
 const whiteboardStage = document.getElementById("whiteboardStage");
 const whiteboardPanel = document.querySelector(".whiteboard-panel");
@@ -52,7 +51,6 @@ const state = {
 };
 
 const boardContext = whiteboardCanvas.getContext("2d");
-const overlayContext = whiteboardOverlay.getContext("2d");
 let isDrawing = false;
 let lastDrawPoint = null;
 let lastMidPoint = null;
@@ -379,22 +377,10 @@ function normaliseWhiteboardResult(result, rawText = "") {
     : String(rawText || "Whiteboard checked.").trim();
 
   const hasError = Boolean(result?.hasError);
-  const circle = result?.circle && typeof result.circle === "object"
-    ? {
-        x: Number(result.circle.x),
-        y: Number(result.circle.y),
-        radius: Number(result.circle.radius),
-      }
-    : null;
-
-  const safeCircle = circle && [circle.x, circle.y, circle.radius].every((value) => Number.isFinite(value))
-    ? circle
-    : null;
 
   return {
     feedback,
     hasError,
-    circle: safeCircle,
   };
 }
 
@@ -475,37 +461,6 @@ function setWorkingFeedback(message, tone = "") {
   }
 }
 
-function clearOverlay() {
-  overlayContext.clearRect(0, 0, whiteboardOverlay.width, whiteboardOverlay.height);
-}
-
-function drawErrorCircle(circle) {
-  if (!circle) {
-    return;
-  }
-
-  const x = Number(circle.x);
-  const y = Number(circle.y);
-  const radius = Number(circle.radius);
-
-  if ([x, y, radius].some((value) => Number.isNaN(value))) {
-    return;
-  }
-
-  const ratio = window.devicePixelRatio || 1;
-  const width = whiteboardOverlay.width / ratio;
-  const height = whiteboardOverlay.height / ratio;
-
-  clearOverlay();
-  overlayContext.strokeStyle = "#ff6b6b";
-  overlayContext.lineWidth = 5;
-  overlayContext.setLineDash([14, 10]);
-  overlayContext.beginPath();
-  overlayContext.arc(x * width, y * height, radius * Math.min(width, height), 0, Math.PI * 2);
-  overlayContext.stroke();
-  overlayContext.setLineDash([]);
-}
-
 function setStatus(message, tone = "") {
   statusText.textContent = message;
   statusText.classList.remove("is-success", "is-error");
@@ -542,7 +497,6 @@ function loadQuestion() {
   equationText.textContent = state.currentQuestion.prompt;
   equationHint.textContent = state.currentQuestion.hint;
   setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
-  clearOverlay();
   state.pendingQuestionAdvance = false;
 }
 
@@ -596,17 +550,13 @@ async function analyseWhiteboardWithGemini() {
 
   const prompt = [
     "You are reviewing a Primary 6 student's handwritten mathematics working from a whiteboard image.",
-    "Find the clearest localised mathematical mistake if one exists.",
     "Return only valid JSON with keys:",
-    'feedback, hasError, circle',
+    'feedback, hasError',
     `Question: ${state.currentQuestion.prompt}`,
     `Expected answer: ${state.currentQuestion.answer}`,
     "Rules:",
     "- feedback should be short and specific.",
     "- hasError must be true or false.",
-    "- circle must be null if no localised error is visible.",
-    "- otherwise circle must contain x, y, radius as numbers between 0 and 1 using the full image width and height.",
-    "- circle the exact handwritten step that looks wrong, not the entire solution.",
     "- Do not use markdown fences.",
   ].join("\n");
 
@@ -620,7 +570,6 @@ async function analyseWhiteboardWithGemini() {
   return normaliseWhiteboardResult({
     feedback: text || "Whiteboard checked, but the reply was not structured clearly.",
     hasError: false,
-    circle: null,
   }, text);
 }
 
@@ -643,7 +592,6 @@ function resizeCanvas() {
   const canvasWidth = Math.max(frameBounds.width - 2, 960);
   const canvasHeight = window.innerWidth <= 720 ? 900 : 1050;
   const boardSnapshot = captureCanvasSnapshot(whiteboardCanvas);
-  const overlaySnapshot = captureCanvasSnapshot(whiteboardOverlay);
 
   whiteboardCanvas.width = canvasWidth * ratio;
   whiteboardCanvas.height = canvasHeight * ratio;
@@ -651,14 +599,7 @@ function resizeCanvas() {
   whiteboardCanvas.style.height = `${canvasHeight}px`;
   boardContext.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-  whiteboardOverlay.width = canvasWidth * ratio;
-  whiteboardOverlay.height = canvasHeight * ratio;
-  whiteboardOverlay.style.width = `${canvasWidth}px`;
-  whiteboardOverlay.style.height = `${canvasHeight}px`;
-  overlayContext.setTransform(ratio, 0, 0, ratio, 0, 0);
-
   clearBoard();
-  clearOverlay();
   whiteboardStage.style.minHeight = `${canvasHeight}px`;
 
   if (boardSnapshot) {
@@ -672,20 +613,6 @@ function resizeCanvas() {
       0,
       whiteboardCanvas.width,
       whiteboardCanvas.height,
-    );
-  }
-
-  if (overlaySnapshot) {
-    overlayContext.drawImage(
-      overlaySnapshot,
-      0,
-      0,
-      overlaySnapshot.width,
-      overlaySnapshot.height,
-      0,
-      0,
-      whiteboardOverlay.width,
-      whiteboardOverlay.height,
     );
   }
 }
@@ -912,7 +839,6 @@ boardTools.addEventListener("click", (event) => {
 
   if (button.id === "clearBoardButton") {
     clearBoard();
-    clearOverlay();
     setStatus("Whiteboard cleared.", "");
     return;
   }
@@ -963,20 +889,18 @@ checkBoardButton.addEventListener("click", async () => {
   }
 
   setControlsDisabled(true);
-  clearOverlay();
   setStatus("Gemini is checking your work...", "");
 
   try {
     const result = await analyseWhiteboardWithGemini();
-    drawErrorCircle(result.circle);
     setWorkingFeedback(
       String(result.feedback || "Whiteboard checked."),
       result.hasError ? "is-error" : "is-success",
     );
     setStatus(
       result.hasError
-        ? "Whiteboard checked. The marked circle shows the likely error."
-        : "Whiteboard checked. No clear localised error was found.",
+        ? "Whiteboard checked. Gemini found a likely mistake in the work."
+        : "Whiteboard checked. No clear mistake was found.",
       result.hasError ? "is-error" : "is-success",
     );
   } catch (error) {
