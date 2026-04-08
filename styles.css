@@ -498,10 +498,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .whiteboard-panel {
-    order: -1;
-  }
-
   h1 {
     max-width: none;
   }
@@ -510,10 +506,6 @@ textarea {
 @media (max-width: 1280px) {
   .workspace-grid {
     grid-template-columns: 1fr;
-  }
-
-  .whiteboard-panel {
-    order: -1;
   }
 
   .whiteboard-frame {
