@@ -6,6 +6,10 @@ const rootDir = __dirname;
 const port = process.env.PORT || 3000;
 const env = loadEnvFile(path.join(rootDir, ".env"));
 const apiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY;
+const rateLimitWindowMs = 60 * 1000;
+const maxRequestsPerWindow = 20;
+const maxPromptLength = 4000;
+const ipRequestLog = new Map();
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -52,9 +56,22 @@ async function handleGenerate(req, res) {
     return;
   }
 
+  const clientIp = getClientIp(req);
+  if (!allowRequestForIp(clientIp)) {
+    sendJson(res, 429, {
+      error: "Too many requests. Please wait a moment and try again.",
+    });
+    return;
+  }
+
   let rawBody = "";
   for await (const chunk of req) {
     rawBody += chunk;
+
+    if (rawBody.length > maxPromptLength * 2) {
+      sendJson(res, 413, { error: "Request body is too large." });
+      return;
+    }
   }
 
   let body;
@@ -68,6 +85,11 @@ async function handleGenerate(req, res) {
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   if (!prompt) {
     sendJson(res, 400, { error: "Prompt is required." });
+    return;
+  }
+
+  if (prompt.length > maxPromptLength) {
+    sendJson(res, 400, { error: "Prompt is too long." });
     return;
   }
 
@@ -117,6 +139,42 @@ function extractText(data) {
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
+}
+
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+
+  return req.socket.remoteAddress || "unknown";
+}
+
+function allowRequestForIp(ip) {
+  const now = Date.now();
+  const recentRequests = (ipRequestLog.get(ip) || []).filter((time) => now - time < rateLimitWindowMs);
+
+  if (recentRequests.length >= maxRequestsPerWindow) {
+    ipRequestLog.set(ip, recentRequests);
+    return false;
+  }
+
+  recentRequests.push(now);
+  ipRequestLog.set(ip, recentRequests);
+  cleanupOldIps(now);
+  return true;
+}
+
+function cleanupOldIps(now) {
+  for (const [ip, times] of ipRequestLog.entries()) {
+    const freshTimes = times.filter((time) => now - time < rateLimitWindowMs);
+    if (freshTimes.length === 0) {
+      ipRequestLog.delete(ip);
+      continue;
+    }
+
+    ipRequestLog.set(ip, freshTimes);
+  }
 }
 
 function loadEnvFile(filePath) {
