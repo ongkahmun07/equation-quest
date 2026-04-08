@@ -299,5 +299,9 @@ function getApiKey() {
 }
 
 server.listen(port, "0.0.0.0", () => {
+  const runtimeKeyPresent = typeof process.env.GEMINI_API_KEY === "string" && process.env.GEMINI_API_KEY.trim().length > 0;
+  const fileKeyPresent = typeof env.GEMINI_API_KEY === "string" && env.GEMINI_API_KEY.trim().length > 0;
   console.log(`Equation Quest running on port ${port}`);
+  console.log(`GEMINI_API_KEY runtime present: ${runtimeKeyPresent}`);
+  console.log(`GEMINI_API_KEY file present: ${fileKeyPresent}`);
 });
