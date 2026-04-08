@@ -627,12 +627,9 @@ function setMode(mode) {
     chip.classList.toggle("is-active", chip.dataset.mode === mode);
   });
 
-  setStatus(`Switched to ${modeLabels[mode]}.`, "");
+  state.queuedQuestion = null;
   loadQuestion();
-  loadQuestionWithGemini({
-    preserveCurrent: true,
-    statusMessage: "Showing a quick question first while Gemini prepares another one...",
-  });
+  setStatus(`Switched to ${modeLabels[mode]}. Using a quick local question to save Gemini usage.`, "");
 }
 
 function resizeCanvas() {
@@ -864,19 +861,14 @@ skipButton.addEventListener("click", async () => {
 
   state.streak = 0;
   updateScoreboard();
+  state.queuedQuestion = null;
   loadQuestion();
   setStatus(
     state.pendingQuestionAdvance
-      ? "Next question loaded. Gemini is preparing another one in the background..."
-      : "Question loaded. Gemini is preparing another one in the background...",
+      ? "Next question loaded instantly using local mode."
+      : "Question loaded instantly using local mode.",
     "",
   );
-  await loadQuestionWithGemini({
-    preserveCurrent: true,
-    statusMessage: state.queuedQuestion
-      ? "Using the prepared Gemini question. Gemini is preparing another one in the background..."
-      : "Question ready. Gemini is still loading in the background...",
-  });
 });
 
 showAnswerButton.addEventListener("click", () => {
@@ -974,8 +966,4 @@ checkBoardButton.addEventListener("click", async () => {
 updateScoreboard();
 resizeCanvas();
 loadQuestion();
-setStatus("Quick question ready. Gemini is loading in the background...", "");
-loadQuestionWithGemini({
-  preserveCurrent: true,
-  statusMessage: "Quick question ready. Gemini is loading in the background...",
-});
+setStatus("Quick question ready. Gemini is used only when checking work or the whiteboard.", "");
