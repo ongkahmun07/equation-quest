@@ -9,6 +9,8 @@ const apiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY;
 const rateLimitWindowMs = 60 * 1000;
 const maxRequestsPerWindow = 20;
 const maxPromptLength = 4000;
+const maxInlineImageBytes = 5 * 1024 * 1024;
+const maxRequestBodyLength = 8 * 1024 * 1024;
 const ipRequestLog = new Map();
 
 const mimeTypes = {
@@ -68,7 +70,7 @@ async function handleGenerate(req, res) {
   for await (const chunk of req) {
     rawBody += chunk;
 
-    if (rawBody.length > maxPromptLength * 2) {
+    if (rawBody.length > maxRequestBodyLength) {
       sendJson(res, 413, { error: "Request body is too large." });
       return;
     }
@@ -83,6 +85,9 @@ async function handleGenerate(req, res) {
   }
 
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+  const imageData = typeof body.imageData === "string" ? body.imageData.trim() : "";
+  const imageMimeType = typeof body.imageMimeType === "string" ? body.imageMimeType.trim() : "";
+
   if (!prompt) {
     sendJson(res, 400, { error: "Prompt is required." });
     return;
@@ -93,7 +98,30 @@ async function handleGenerate(req, res) {
     return;
   }
 
+  if (imageData) {
+    if (!imageMimeType.startsWith("image/")) {
+      sendJson(res, 400, { error: "Unsupported image type." });
+      return;
+    }
+
+    const approxBytes = Math.ceil((imageData.length * 3) / 4);
+    if (approxBytes > maxInlineImageBytes) {
+      sendJson(res, 400, { error: "Image is too large." });
+      return;
+    }
+  }
+
   try {
+    const parts = [{ text: prompt }];
+    if (imageData) {
+      parts.unshift({
+        inline_data: {
+          mime_type: imageMimeType,
+          data: imageData,
+        },
+      });
+    }
+
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
       method: "POST",
       headers: {
@@ -104,7 +132,7 @@ async function handleGenerate(req, res) {
         contents: [
           {
             role: "user",
-            parts: [{ text: prompt }],
+            parts,
           },
         ],
       }),

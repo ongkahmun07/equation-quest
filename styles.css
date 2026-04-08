@@ -74,14 +74,13 @@ body::before {
 }
 
 .app-shell {
-  width: min(1180px, calc(100% - 32px));
+  width: min(1480px, calc(100% - 32px));
   min-height: 100vh;
   margin: 0 auto;
   padding: 28px 0;
-  display: grid;
-  grid-template-columns: minmax(320px, 0.95fr) minmax(320px, 1.05fr);
+  display: flex;
+  flex-direction: column;
   gap: 24px;
-  align-items: stretch;
   position: relative;
   z-index: 1;
 }
@@ -97,14 +96,24 @@ body::before {
 
 .hero-panel {
   padding: 38px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 28px;
+  display: grid;
+  grid-template-columns: minmax(280px, 1.05fr) minmax(280px, 0.95fr);
+  gap: 24px;
+  align-items: center;
 }
 
 .practice-panel {
   padding: 30px;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.78fr) minmax(560px, 1.22fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.left-column {
   display: flex;
   flex-direction: column;
   gap: 22px;
@@ -217,6 +226,10 @@ h2 {
 .chip-row,
 .action-row {
   flex-wrap: wrap;
+}
+
+.feedback-panel {
+  flex-direction: column;
 }
 
 .whiteboard-header {
@@ -352,6 +365,7 @@ textarea {
     linear-gradient(180deg, rgba(62, 214, 255, 0.06), transparent 35%),
     var(--surface-strong);
   padding: 22px;
+  min-height: 100%;
 }
 
 .whiteboard-title {
@@ -368,7 +382,7 @@ textarea {
 .whiteboard-frame {
   margin-top: 18px;
   border-radius: 22px;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid rgba(124, 247, 212, 0.16);
   background:
     linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
@@ -376,18 +390,31 @@ textarea {
     linear-gradient(180deg, rgba(2, 12, 21, 0.96), rgba(6, 18, 31, 0.96));
   background-size: 30px 30px, 30px 30px, auto;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  height: 620px;
+}
+
+.whiteboard-stage {
+  position: relative;
+  min-height: 960px;
+}
+
+#whiteboardCanvas,
+#whiteboardOverlay {
+  display: block;
+  width: 100%;
+  min-width: 900px;
+  height: 960px;
+  touch-action: none;
 }
 
 #whiteboardCanvas {
-  display: block;
-  width: 100%;
-  height: 560px;
-  touch-action: none;
   cursor: crosshair;
 }
 
-.working-notes {
-  margin-top: 18px;
+#whiteboardOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .tool-button {
@@ -427,7 +454,8 @@ textarea {
 }
 
 @media (max-width: 980px) {
-  .app-shell {
+  .hero-panel,
+  .workspace-grid {
     grid-template-columns: 1fr;
   }
 
@@ -448,7 +476,6 @@ textarea {
   }
 
   .hero-stats,
-  .feedback-panel,
   .answer-row,
   .panel-top {
     grid-template-columns: 1fr;
@@ -471,7 +498,17 @@ textarea {
     width: 100%;
   }
 
-  #whiteboardCanvas {
-    height: 380px;
+  .whiteboard-frame {
+    height: 500px;
+  }
+
+  .whiteboard-stage {
+    min-height: 820px;
+  }
+
+  #whiteboardCanvas,
+  #whiteboardOverlay {
+    min-width: 760px;
+    height: 820px;
   }
 }

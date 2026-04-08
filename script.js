@@ -12,13 +12,17 @@ const skipButton = document.getElementById("skipButton");
 const challengeTitle = document.getElementById("challengeTitle");
 const difficultyChips = document.getElementById("difficultyChips");
 const whiteboardCanvas = document.getElementById("whiteboardCanvas");
+const whiteboardOverlay = document.getElementById("whiteboardOverlay");
+const whiteboardFrame = document.getElementById("whiteboardFrame");
 const boardTools = document.getElementById("boardTools");
 const workingInput = document.getElementById("workingInput");
+const checkBoardButton = document.getElementById("checkBoardButton");
 const controlsToDisable = [
   answerInput,
   workingInput,
   showAnswerButton,
   skipButton,
+  checkBoardButton,
 ];
 const modeLabels = {
   mixed: "Mixed Practice",
@@ -48,6 +52,7 @@ const state = {
 };
 
 const boardContext = whiteboardCanvas.getContext("2d");
+const overlayContext = whiteboardOverlay.getContext("2d");
 let isDrawing = false;
 
 function randomInt(min, max) {
@@ -314,6 +319,27 @@ async function askGemini(prompt) {
   return data.text || "";
 }
 
+async function askGeminiWithImage(prompt, imageData, imageMimeType = "image/png") {
+  const response = await fetch("/api/generate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      imageData,
+      imageMimeType,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Gemini image request failed.");
+  }
+
+  return data.text || "";
+}
+
 function parseJsonResponse(rawText) {
   const cleaned = rawText.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
   return JSON.parse(cleaned);
@@ -374,6 +400,37 @@ function setWorkingFeedback(message, tone = "") {
   }
 }
 
+function clearOverlay() {
+  overlayContext.clearRect(0, 0, whiteboardOverlay.width, whiteboardOverlay.height);
+}
+
+function drawErrorCircle(circle) {
+  if (!circle) {
+    return;
+  }
+
+  const x = Number(circle.x);
+  const y = Number(circle.y);
+  const radius = Number(circle.radius);
+
+  if ([x, y, radius].some((value) => Number.isNaN(value))) {
+    return;
+  }
+
+  const ratio = window.devicePixelRatio || 1;
+  const width = whiteboardOverlay.width / ratio;
+  const height = whiteboardOverlay.height / ratio;
+
+  clearOverlay();
+  overlayContext.strokeStyle = "#ff6b6b";
+  overlayContext.lineWidth = 5;
+  overlayContext.setLineDash([14, 10]);
+  overlayContext.beginPath();
+  overlayContext.arc(x * width, y * height, radius * Math.min(width, height), 0, Math.PI * 2);
+  overlayContext.stroke();
+  overlayContext.setLineDash([]);
+}
+
 function normaliseAnswer(value) {
   return value.trim().replace(/\s+/g, "").replace(/,+/g, ".");
 }
@@ -419,6 +476,7 @@ function loadQuestion() {
   answerInput.value = "";
   workingInput.value = "";
   clearBoard();
+  clearOverlay();
   state.pendingQuestionAdvance = false;
   answerInput.focus();
 }
@@ -438,6 +496,7 @@ async function loadQuestionWithGemini() {
     answerInput.value = "";
     workingInput.value = "";
     clearBoard();
+    clearOverlay();
     state.pendingQuestionAdvance = false;
     setStatus("Gemini question ready.", "is-success");
   } catch (error) {
@@ -507,6 +566,31 @@ async function analyseWorkingWithGemini(userAnswer) {
   return parseJsonResponse(text);
 }
 
+async function analyseWhiteboardWithGemini() {
+  const dataUrl = whiteboardCanvas.toDataURL("image/png");
+  const [, base64Data = ""] = dataUrl.split(",");
+
+  const prompt = [
+    "You are reviewing a Primary 6 student's handwritten mathematics working from a whiteboard image.",
+    "Find the clearest localised mathematical mistake if one exists.",
+    "Return only valid JSON with keys:",
+    'feedback, hasError, circle',
+    `Question: ${state.currentQuestion.prompt}`,
+    `Expected answer: ${state.currentQuestion.answer}`,
+    `Typed working notes: ${workingInput.value.trim() || "(none)"}`,
+    "Rules:",
+    "- feedback should be short and specific.",
+    "- hasError must be true or false.",
+    "- circle must be null if no localised error is visible.",
+    "- otherwise circle must contain x, y, radius as numbers between 0 and 1 using the full image width and height.",
+    "- circle the exact handwritten step that looks wrong, not the entire solution.",
+    "- Do not use markdown fences.",
+  ].join("\n");
+
+  const text = await askGeminiWithImage(prompt, base64Data, "image/png");
+  return parseJsonResponse(text);
+}
+
 function setMode(mode) {
   state.mode = mode;
   challengeTitle.textContent = modeLabels[mode];
@@ -521,12 +605,24 @@ function setMode(mode) {
 
 function resizeCanvas() {
   const ratio = window.devicePixelRatio || 1;
-  const bounds = whiteboardCanvas.getBoundingClientRect();
+  const frameBounds = whiteboardFrame.getBoundingClientRect();
+  const canvasWidth = Math.max(frameBounds.width - 2, 960);
+  const canvasHeight = 960;
 
-  whiteboardCanvas.width = bounds.width * ratio;
-  whiteboardCanvas.height = bounds.height * ratio;
+  whiteboardCanvas.width = canvasWidth * ratio;
+  whiteboardCanvas.height = canvasHeight * ratio;
+  whiteboardCanvas.style.width = `${canvasWidth}px`;
+  whiteboardCanvas.style.height = `${canvasHeight}px`;
   boardContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+  whiteboardOverlay.width = canvasWidth * ratio;
+  whiteboardOverlay.height = canvasHeight * ratio;
+  whiteboardOverlay.style.width = `${canvasWidth}px`;
+  whiteboardOverlay.style.height = `${canvasHeight}px`;
+  overlayContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+
   clearBoard();
+  clearOverlay();
 }
 
 function clearBoard() {
@@ -713,7 +809,12 @@ boardTools.addEventListener("click", (event) => {
 
   if (button.id === "clearBoardButton") {
     clearBoard();
+    clearOverlay();
     setStatus("Whiteboard cleared.", "");
+    return;
+  }
+
+  if (button.id === "checkBoardButton") {
     return;
   }
 
@@ -736,6 +837,35 @@ whiteboardCanvas.addEventListener("pointerup", stopDrawing);
 whiteboardCanvas.addEventListener("pointerleave", stopDrawing);
 whiteboardCanvas.addEventListener("pointercancel", stopDrawing);
 window.addEventListener("resize", resizeCanvas);
+
+checkBoardButton.addEventListener("click", async () => {
+  if (state.isLoadingQuestion || !state.currentQuestion) {
+    return;
+  }
+
+  setControlsDisabled(true);
+  clearOverlay();
+  setStatus("Gemini is checking your handwriting...", "");
+
+  try {
+    const result = await analyseWhiteboardWithGemini();
+    drawErrorCircle(result.circle);
+    setWorkingFeedback(
+      String(result.feedback || "Whiteboard checked."),
+      result.hasError ? "is-error" : "is-success",
+    );
+    setStatus(
+      result.hasError
+        ? "Whiteboard checked. The marked circle shows the likely error."
+        : "Whiteboard checked. No clear localised error was found.",
+      result.hasError ? "is-error" : "is-success",
+    );
+  } catch (error) {
+    setStatus(`Whiteboard check failed: ${error.message}`, "is-error");
+  } finally {
+    setControlsDisabled(false);
+  }
+});
 
 updateScoreboard();
 resizeCanvas();
