@@ -55,6 +55,7 @@ const state = {
 const boardContext = whiteboardCanvas.getContext("2d");
 const overlayContext = whiteboardOverlay.getContext("2d");
 let isDrawing = false;
+let lastDrawPoint = null;
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -649,32 +650,60 @@ function warnNonPenInput() {
   }
 
   state.lastInputWarningAt = now;
-  setStatus("Whiteboard drawing is set to Apple Pencil / pen input only.", "");
+  setStatus("Use Apple Pencil / pen input on the whiteboard.", "");
 }
 
-function drawPoint(event) {
-  const point = getPoint(event);
+function configureBrush() {
   boardContext.lineCap = "round";
   boardContext.lineJoin = "round";
 
   if (state.boardTool === "eraser") {
     boardContext.globalCompositeOperation = "destination-out";
-    boardContext.lineWidth = 24;
+    boardContext.lineWidth = 26;
   } else {
     boardContext.globalCompositeOperation = "source-over";
     boardContext.strokeStyle = "#f8fbff";
-    boardContext.lineWidth = 4;
+    boardContext.lineWidth = 3.5;
+  }
+}
+
+function drawStrokeSegment(point) {
+  configureBrush();
+
+  if (!lastDrawPoint) {
+    boardContext.beginPath();
+    boardContext.arc(point.x, point.y, boardContext.lineWidth / 2, 0, Math.PI * 2);
+    boardContext.fillStyle = state.boardTool === "eraser" ? "rgba(0,0,0,1)" : "#f8fbff";
+    if (state.boardTool === "eraser") {
+      boardContext.fill();
+    } else {
+      boardContext.fill();
+    }
+    lastDrawPoint = point;
+    return;
   }
 
-  boardContext.lineTo(point.x, point.y);
-  boardContext.stroke();
+  const midPoint = {
+    x: (lastDrawPoint.x + point.x) / 2,
+    y: (lastDrawPoint.y + point.y) / 2,
+  };
+
   boardContext.beginPath();
-  boardContext.moveTo(point.x, point.y);
+  boardContext.moveTo(lastDrawPoint.x, lastDrawPoint.y);
+  boardContext.quadraticCurveTo(lastDrawPoint.x, lastDrawPoint.y, midPoint.x, midPoint.y);
+  boardContext.stroke();
+  lastDrawPoint = point;
+}
+
+function drawPoint(event) {
+  const events = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
+  for (const currentEvent of events) {
+    drawStrokeSegment(getPoint(currentEvent));
+  }
 }
 
 function startDrawing(event) {
   if (!isAllowedPointer(event)) {
-    warnNonPenInput();
     return;
   }
 
@@ -682,8 +711,8 @@ function startDrawing(event) {
   isDrawing = true;
   whiteboardCanvas.setPointerCapture(event.pointerId);
   const point = getPoint(event);
-  boardContext.beginPath();
-  boardContext.moveTo(point.x, point.y);
+  lastDrawPoint = point;
+  drawStrokeSegment(point);
 }
 
 function stopDrawing(event) {
@@ -696,7 +725,7 @@ function stopDrawing(event) {
   }
 
   isDrawing = false;
-  boardContext.beginPath();
+  lastDrawPoint = null;
 }
 
 function setBoardTool(tool) {
@@ -854,12 +883,18 @@ whiteboardCanvas.addEventListener("pointermove", (event) => {
     return;
   }
 
+  event.preventDefault();
   drawPoint(event);
 });
 
 whiteboardCanvas.addEventListener("pointerup", stopDrawing);
 whiteboardCanvas.addEventListener("pointerleave", stopDrawing);
 whiteboardCanvas.addEventListener("pointercancel", stopDrawing);
+whiteboardCanvas.addEventListener("pointerdown", (event) => {
+  if (!isAllowedPointer(event)) {
+    warnNonPenInput();
+  }
+});
 window.addEventListener("resize", resizeCanvas);
 
 checkBoardButton.addEventListener("click", async () => {
