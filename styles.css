@@ -107,6 +107,7 @@ body::before {
 
 .practice-panel {
   padding: 30px;
+  overflow: hidden;
 }
 
 .workspace-grid {
@@ -114,12 +115,32 @@ body::before {
   grid-template-columns: minmax(320px, 0.78fr) minmax(560px, 1.22fr);
   gap: 24px;
   align-items: start;
+  min-width: 0;
 }
 
 .left-column {
   display: flex;
   flex-direction: column;
   gap: 22px;
+  min-width: 0;
+}
+
+.hero-copy,
+.hero-stats,
+.level-strip,
+.panel-top,
+.chip-row,
+.feedback-panel,
+.action-row,
+.status-card,
+.tip-card,
+.equation-card,
+.whiteboard-panel,
+.whiteboard-top,
+.whiteboard-header,
+.whiteboard-frame,
+.whiteboard-stage {
+  min-width: 0;
 }
 
 .left-column,
@@ -168,6 +189,12 @@ h2 {
   line-height: 1.75;
 }
 
+.tip-text,
+.status-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 .intro {
   margin: 18px 0 0;
   max-width: 34ch;
@@ -205,6 +232,7 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
 }
 
 .level-strip span,
@@ -215,6 +243,7 @@ h2 {
   background: rgba(124, 247, 212, 0.08);
   color: var(--ink);
   font: inherit;
+  max-width: 100%;
 }
 
 .panel-top,
@@ -235,6 +264,11 @@ h2 {
 
 .chip-row,
 .action-row {
+  flex-wrap: wrap;
+}
+
+.panel-top,
+.whiteboard-header {
   flex-wrap: wrap;
 }
 
@@ -292,6 +326,7 @@ h2 {
   font-size: clamp(2.4rem, 7vw, 4.5rem);
   line-height: 1.05;
   letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
 }
 
 .equation-hint {
@@ -368,6 +403,7 @@ textarea {
 .tip-card {
   flex: 1;
   padding: 22px;
+  overflow: hidden;
 }
 
 .whiteboard-panel {
@@ -380,6 +416,7 @@ textarea {
   min-height: 100%;
   -webkit-user-select: none;
   user-select: none;
+  overflow: hidden;
 }
 
 .whiteboard-title {
@@ -396,6 +433,7 @@ textarea {
   -webkit-user-select: none;
   user-select: none;
   max-width: 40ch;
+  overflow-wrap: anywhere;
 }
 
 .whiteboard-frame {
@@ -490,6 +528,10 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .hero-panel {
+    padding: 28px;
+  }
+
   h1 {
     max-width: none;
   }
@@ -498,6 +540,10 @@ textarea {
 @media (max-width: 1280px) {
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .whiteboard-panel {
+    order: 2;
   }
 
   .whiteboard-frame {
@@ -530,6 +576,18 @@ textarea {
     display: grid;
   }
 
+  .hero-stats,
+  .feedback-panel,
+  .action-row,
+  .chip-row,
+  .board-tools {
+    gap: 12px;
+  }
+
+  .hero-stats {
+    grid-template-columns: 1fr;
+  }
+
   .chip-row {
     margin-top: 6px;
   }
@@ -559,7 +617,37 @@ textarea {
   }
 
   #whiteboardCanvas {
-    min-width: 760px;
+    min-width: 100%;
     height: 900px;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    width: calc(100% - 16px);
+  }
+
+  .hero-panel,
+  .practice-panel,
+  .whiteboard-panel,
+  .equation-card,
+  .status-card,
+  .tip-card {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .equation-text {
+    font-size: clamp(2rem, 12vw, 3.1rem);
+  }
+
+  .chip,
+  .level-strip span {
+    width: 100%;
+    text-align: center;
+  }
+
+  .whiteboard-frame {
+    height: 460px;
   }
 }

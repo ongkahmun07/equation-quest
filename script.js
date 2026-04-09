@@ -372,9 +372,64 @@ function tryParseJsonObject(rawText) {
 }
 
 function normaliseWhiteboardResult(result, rawText = "") {
-  const feedback = typeof result?.feedback === "string" && result.feedback.trim()
+  const summary = typeof result?.summary === "string" && result.summary.trim()
+    ? result.summary.trim()
+    : "";
+  const stepReview = Array.isArray(result?.stepReview)
+    ? result.stepReview
+      .map((item) => ({
+        step: String(item?.step || "").trim(),
+        verdict: String(item?.verdict || "").trim().toLowerCase(),
+        feedback: String(item?.feedback || "").trim(),
+      }))
+      .filter((item) => item.step || item.feedback)
+    : [];
+  const strengths = Array.isArray(result?.strengths)
+    ? result.strengths.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+  const mistakes = Array.isArray(result?.mistakes)
+    ? result.mistakes.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+  const nextSteps = Array.isArray(result?.nextSteps)
+    ? result.nextSteps.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+
+  const sections = [];
+
+  if (summary) {
+    sections.push(summary);
+  }
+
+  if (stepReview.length) {
+    const wrongSteps = stepReview.filter((item) => item.verdict === "wrong" || item.verdict === "unclear");
+    const rightSteps = stepReview.filter((item) => item.verdict === "correct");
+
+    if (wrongSteps.length) {
+      sections.push(`Step-by-step fixes:\n- ${wrongSteps.map((item) => `${item.step || "Step"}: ${item.feedback || "This step needs correction."}`).join("\n- ")}`);
+    }
+
+    if (rightSteps.length) {
+      sections.push(`Correct steps noticed:\n- ${rightSteps.map((item) => `${item.step || "Step"}: ${item.feedback || "This part looks correct."}`).join("\n- ")}`);
+    }
+  }
+
+  if (strengths.length) {
+    sections.push(`What went well:\n- ${strengths.join("\n- ")}`);
+  }
+
+  if (mistakes.length) {
+    sections.push(`What to fix:\n- ${mistakes.join("\n- ")}`);
+  }
+
+  if (nextSteps.length) {
+    sections.push(`Next steps:\n- ${nextSteps.join("\n- ")}`);
+  }
+
+  const fallbackFeedback = typeof result?.feedback === "string" && result.feedback.trim()
     ? result.feedback.trim()
     : String(rawText || "Whiteboard checked.").trim();
+
+  const feedback = sections.length ? sections.join("\n\n") : fallbackFeedback;
 
   const hasError = Boolean(result?.hasError);
 
@@ -551,12 +606,25 @@ async function analyseWhiteboardWithGemini() {
   const prompt = [
     "You are reviewing a Primary 6 student's handwritten mathematics working from a whiteboard image.",
     "Return only valid JSON with keys:",
-    'feedback, hasError',
+    'summary, stepReview, strengths, mistakes, nextSteps, hasError',
     `Question: ${state.currentQuestion.prompt}`,
     `Expected answer: ${state.currentQuestion.answer}`,
     "Rules:",
-    "- feedback should be short and specific.",
+    "- summary should be 1 or 2 sentences.",
+    '- stepReview must be an array of objects with keys: step, verdict, feedback.',
+    '- verdict must be one of: "correct", "wrong", "unclear".',
+    "- Include one stepReview item for every readable step in the student's working.",
+    "- If a step is wrong, explain exactly what is wrong in that step.",
+    "- If a step is correct, briefly say why it is correct.",
+    "- Keep the step labels in the order the child wrote them, for example Step 1, Step 2.",
+    "- strengths must be an array of short points about correct parts of the working.",
+    "- mistakes must be an array of short points about each likely mistake or missing step.",
+    "- nextSteps must be an array of short coaching points telling the student what to do next.",
     "- hasError must be true or false.",
+    "- Review the whole visible working, not just the final answer.",
+    "- If some writing is unclear, say that clearly and still comment on any readable parts.",
+    "- If the method is mostly correct, explain why in detail.",
+    "- Keep every point specific to this student's work.",
     "- Do not use markdown fences.",
   ].join("\n");
 
@@ -568,7 +636,8 @@ async function analyseWhiteboardWithGemini() {
   }
 
   return normaliseWhiteboardResult({
-    feedback: text || "Whiteboard checked, but the reply was not structured clearly.",
+    summary: text || "Whiteboard checked, but the reply was not structured clearly.",
+    stepReview: [],
     hasError: false,
   }, text);
 }
