@@ -95,13 +95,14 @@ function createNumberQuestion() {
       const a = randomInt(120, 950);
       const b = randomInt(35, 240);
       return {
-        prompt: `${a} + ${b} = ?`,
-        answer: String(a + b),
-        hint: "Add the hundreds, tens, and ones carefully.",
-        skill: "numbers",
-        workingChecks: ["+", String(a), String(b)],
-        workingTip: "Show the two numbers you are combining, or mention place values such as hundreds and tens.",
-      };
+          prompt: `${a} + ${b} = ?`,
+          answer: String(a + b),
+          hint: "Add the hundreds, tens, and ones carefully.",
+          skill: "numbers",
+          workedSolution: `Step 1: Write ${a} + ${b}.\nStep 2: Add the ones, tens, and hundreds carefully.\nStep 3: ${a} + ${b} = ${a + b}.`,
+          workingChecks: ["+", String(a), String(b)],
+          workingTip: "Show the two numbers you are combining, or mention place values such as hundreds and tens.",
+        };
     },
     () => {
       const a = randomInt(400, 980);
@@ -111,6 +112,7 @@ function createNumberQuestion() {
         answer: String(a - b),
         hint: "Regroup if needed and subtract by place value.",
         skill: "numbers",
+        workedSolution: `Step 1: Write ${a} - ${b}.\nStep 2: Regroup if any top digit is smaller than the bottom digit.\nStep 3: Subtract each place value carefully.\nStep 4: ${a} - ${b} = ${a - b}.`,
         workingChecks: ["-", String(a), String(b)],
         workingTip: "Try writing the subtraction setup or mention regrouping/borrowing in your working.",
       };
@@ -123,6 +125,7 @@ function createNumberQuestion() {
         answer: String(a * b),
         hint: "Use multiplication facts or break one number apart.",
         skill: "numbers",
+        workedSolution: `Step 1: Write ${a} x ${b}.\nStep 2: Use a known times fact or split one factor into easier parts.\nStep 3: Multiply to get ${a * b}.\nStep 4: ${a} x ${b} = ${a * b}.`,
         workingChecks: ["x", String(a), String(b)],
         workingTip: "A strong method shows repeated groups, times facts, or a breakdown such as 20 x 4 + 3 x 4.",
       };
@@ -136,6 +139,7 @@ function createNumberQuestion() {
         answer: String(quotient),
         hint: "Think: what number multiplied by the divisor gives the dividend?",
         skill: "numbers",
+        workedSolution: `Step 1: Think of the related multiplication fact.\nStep 2: Find the number that makes ${divisor} x ? = ${dividend}.\nStep 3: ${divisor} x ${quotient} = ${dividend}, so ${dividend} / ${divisor} = ${quotient}.`,
         workingChecks: ["/", String(dividend), String(divisor)],
         workingTip: "Useful working links division and multiplication, for example 12 x 8 = 96 so 96 / 12 = 8.",
       };
@@ -157,6 +161,7 @@ function createFractionQuestion() {
         answer: formatFraction(simplified.numerator, simplified.denominator),
         hint: "The denominators are the same, so add only the numerators and simplify.",
         skill: "fractions",
+        workedSolution: `Step 1: The denominators are both ${denominator}, so keep the denominator ${denominator}.\nStep 2: Add the numerators: ${left} + ${right} = ${left + right}.\nStep 3: This gives ${formatFraction(left + right, denominator)}.\nStep 4: Simplify if possible to get ${formatFraction(simplified.numerator, simplified.denominator)}.`,
         workingChecks: [formatFraction(left, denominator), formatFraction(right, denominator), String(denominator)],
         workingTip: "Show that the denominators stay the same and only the numerators are added before simplifying.",
       };
@@ -171,6 +176,7 @@ function createFractionQuestion() {
         answer: formatFraction(simplified.numerator, simplified.denominator),
         hint: "Subtract the numerators, then check whether the fraction can be simplified.",
         skill: "fractions",
+        workedSolution: `Step 1: The denominators are both ${denominator}, so keep the denominator ${denominator}.\nStep 2: Subtract the numerators: ${top} - ${bottom} = ${top - bottom}.\nStep 3: This gives ${formatFraction(top - bottom, denominator)}.\nStep 4: Simplify if possible to get ${formatFraction(simplified.numerator, simplified.denominator)}.`,
         workingChecks: [formatFraction(top, denominator), formatFraction(bottom, denominator), String(denominator)],
         workingTip: "A clear method keeps the denominator fixed, subtracts the numerators, then simplifies the result.",
       };
@@ -185,6 +191,7 @@ function createFractionQuestion() {
         answer: formatFraction(answer.numerator, answer.denominator),
         hint: "Turn the whole number into a fraction with the same denominator first.",
         skill: "fractions",
+        workedSolution: `Step 1: Turn ${whole} into a fraction with denominator ${denominator}: ${whole} = ${whole * denominator}/${denominator}.\nStep 2: Add the fractions: ${whole * denominator}/${denominator} + ${numerator}/${denominator} = ${whole * denominator + numerator}/${denominator}.\nStep 3: Simplify if possible to get ${formatFraction(answer.numerator, answer.denominator)}.`,
         workingChecks: [String(whole), formatFraction(numerator, denominator), String(denominator)],
         workingTip: "Good working converts the whole number into an equivalent fraction before adding.",
       };
@@ -204,6 +211,7 @@ function createDecimalQuestion() {
         answer: (Number(a) + Number(b)).toFixed(1),
         hint: "Line up the decimal points before adding.",
         skill: "decimals",
+        workedSolution: `Step 1: Line up the decimal points.\nStep 2: Add ${a} and ${b} by place value.\nStep 3: ${a} + ${b} = ${(Number(a) + Number(b)).toFixed(1)}.`,
         workingChecks: [a, b, "."],
         workingTip: "Show the decimal numbers lined up or mention tenths when you explain your method.",
       };
@@ -216,6 +224,7 @@ function createDecimalQuestion() {
         answer: (Number(a) - Number(b)).toFixed(1),
         hint: "Subtract the tenths and ones separately.",
         skill: "decimals",
+        workedSolution: `Step 1: Line up the decimal points.\nStep 2: Subtract ${b} from ${a} by place value.\nStep 3: ${a} - ${b} = ${(Number(a) - Number(b)).toFixed(1)}.`,
         workingChecks: [a, b, "."],
         workingTip: "A helpful method lines up decimal points so each place value stays in the right column.",
       };
@@ -227,6 +236,7 @@ function createDecimalQuestion() {
         answer: (whole / 10).toFixed(1),
         hint: "Dividing by 10 shifts every digit one place to the right.",
         skill: "decimals",
+        workedSolution: `Step 1: Dividing by 10 moves each digit one place to the right.\nStep 2: ${whole} becomes ${(whole / 10).toFixed(1)}.\nStep 3: So ${whole} / 10 = ${(whole / 10).toFixed(1)}.`,
         workingChecks: [String(whole), "/10", "10"],
         workingTip: "Try showing the place-value shift, for example 34 becomes 3.4 when divided by 10.",
       };
@@ -246,6 +256,7 @@ function createPercentageQuestion() {
         answer: String((percent / 100) * base),
         hint: "Convert the percentage to a fraction or decimal, then multiply.",
         skill: "percentages",
+        workedSolution: `Step 1: Convert ${percent}% to ${percent}/100.\nStep 2: Calculate ${percent}/100 x ${base} = ${(percent / 100) * base}.\nStep 3: So ${percent}% of ${base} = ${(percent / 100) * base}.`,
         workingChecks: [`${percent}%`, String(base)],
         workingTip: "Strong working converts the percentage to a fraction or decimal before finding the amount.",
       };
@@ -260,6 +271,7 @@ function createPercentageQuestion() {
         answer: String(percent),
         hint: "Use part divided by whole, then multiply by 100.",
         skill: "percentages",
+        workedSolution: `Step 1: Use part / whole x 100.\nStep 2: ${part} / ${base} x 100 = ${percent}.\nStep 3: So ${part} is ${percent}% of ${base}.`,
         workingChecks: [String(part), String(base), "100"],
         workingTip: "A strong percentage method uses part / whole x 100.",
       };
@@ -273,6 +285,7 @@ function createPercentageQuestion() {
         answer: String(original + increase),
         hint: "Find the percentage amount first, then add it to the original value.",
         skill: "percentages",
+        workedSolution: `Step 1: Find ${percent}% of ${original}: ${percent}/100 x ${original} = ${increase}.\nStep 2: Add the increase to the original value: ${original} + ${increase} = ${original + increase}.\nStep 3: So the new value is ${original + increase}.`,
         workingChecks: [String(original), `${percent}%`],
         workingTip: "Show the increase amount first, then add it back to the original value.",
       };
@@ -467,6 +480,11 @@ function normaliseQuestion(question) {
     answer: String(question.answer || "0"),
     hint: String(question.hint || "Work carefully and check your method."),
     skill: String(question.skill || state.mode || "mixed"),
+    workedSolution: String(
+      question.workedSolution
+      || question.solution
+      || `Step 1: Work through the calculation carefully.\nStep 2: Check each step.\nStep 3: Final answer: ${String(question.answer || "0")}.`,
+    ),
     workingTip: String(question.workingTip || tipsByMode[state.mode] || "Show your method clearly."),
     workingChecks: Array.isArray(question.workingChecks) ? question.workingChecks.map(String) : [],
     source: String(question.source || "gemini"),
@@ -475,19 +493,20 @@ function normaliseQuestion(question) {
 
 async function generateGeminiQuestion() {
   const selectedMode = state.mode === "mixed" ? "mixed Primary 6 mathematics topics" : `${state.mode} questions`;
-  const prompt = [
-    "You are generating one mathematics practice question for a Primary 6 student.",
-    `Topic mode: ${selectedMode}.`,
-    "Return only valid JSON with these keys:",
-    'prompt, answer, hint, skill, workingTip, workingChecks',
-    "Rules:",
-    "- Keep the question suitable for Primary 6.",
-    "- Use plain text only.",
-    "- The answer must be short and exact.",
-    "- workingChecks must be an array of 2 to 4 short strings that should appear in good written working.",
-    "- Do not include markdown fences.",
-    "- Use one-step or two-step arithmetic only.",
-    "- Allowed topics: whole numbers, fractions, decimals, percentages.",
+    const prompt = [
+      "You are generating one mathematics practice question for a Primary 6 student.",
+      `Topic mode: ${selectedMode}.`,
+      "Return only valid JSON with these keys:",
+      'prompt, answer, hint, skill, workedSolution, workingTip, workingChecks',
+      "Rules:",
+      "- Keep the question suitable for Primary 6.",
+      "- Use plain text only.",
+      "- The answer must be short and exact.",
+      "- workedSolution must show the full method step by step for a child.",
+      "- workingChecks must be an array of 2 to 4 short strings that should appear in good written working.",
+      "- Do not include markdown fences.",
+      "- Use one-step or two-step arithmetic only.",
+      "- Allowed topics: whole numbers, fractions, decimals, percentages.",
   ].join("\n");
 
   const text = await askGemini(prompt);
@@ -893,7 +912,11 @@ skipButton.addEventListener("click", async () => {
 showAnswerButton.addEventListener("click", () => {
   state.streak = 0;
   updateScoreboard();
-  setStatus(`Answer shown: ${state.currentQuestion.answer}. Use the whiteboard to compare your method.`, "");
+  setWorkingFeedback(
+    state.currentQuestion.workedSolution || `Final answer: ${state.currentQuestion.answer}.`,
+    "is-success",
+  );
+  setStatus(`Worked solution shown. Final answer: ${state.currentQuestion.answer}.`, "is-success");
 });
 
 difficultyChips.addEventListener("click", (event) => {
