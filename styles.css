@@ -327,6 +327,7 @@ h2 {
   line-height: 1.05;
   letter-spacing: -0.04em;
   overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
 .equation-hint {

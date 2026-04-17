@@ -26,6 +26,7 @@ const modeLabels = {
   fractions: "Fraction Focus",
   decimals: "Decimal Dash",
   percentages: "Percentage Power",
+  simultaneous: "Simultaneous Equations",
 };
 
 const tipsByMode = {
@@ -34,6 +35,7 @@ const tipsByMode = {
   fractions: "Look for common denominators and simplify when possible.",
   decimals: "Line up place values carefully before adding or subtracting.",
   percentages: "Remember that 10% is one-tenth, so you can build other percentages from it.",
+  simultaneous: "Pick one variable to eliminate first, then solve step by step and substitute back to check.",
 };
 
 const state = {
@@ -295,9 +297,44 @@ function createPercentageQuestion() {
   return randomChoice(templates)();
 }
 
+function createSimultaneousQuestion() {
+  const x = randomInt(1, 8);
+  const y = randomInt(1, 8);
+  const a1 = randomChoice([1, 2, 3]);
+  const b1 = randomChoice([1, 2, 3, 4]);
+  const a2 = randomChoice([1, 2, 3, 4]);
+  const b2 = randomChoice([1, 2, 3]);
+
+  if ((a1 * b2) === (a2 * b1)) {
+    return createSimultaneousQuestion();
+  }
+
+  const c1 = (a1 * x) + (b1 * y);
+  const c2 = (a2 * x) + (b2 * y);
+  const scale1 = a2;
+  const scale2 = a1;
+  const scaledB1 = b1 * scale1;
+  const scaledB2 = b2 * scale2;
+  const scaledC1 = c1 * scale1;
+  const scaledC2 = c2 * scale2;
+  const yCoefficient = scaledB1 - scaledB2;
+  const yValue = (scaledC1 - scaledC2) / yCoefficient;
+  const xValue = (c1 - (b1 * yValue)) / a1;
+
+  return {
+    prompt: `Solve the simultaneous equations:\n${a1}x + ${b1}y = ${c1}\n${a2}x + ${b2}y = ${c2}`,
+    answer: `x = ${x}, y = ${y}`,
+    hint: "Eliminate one variable first, then substitute back to find the other.",
+    skill: "simultaneous",
+    workedSolution: `Step 1: Write the equations:\n${a1}x + ${b1}y = ${c1}\n${a2}x + ${b2}y = ${c2}.\nStep 2: Make the x-coefficients match by multiplying the first equation by ${scale1} and the second equation by ${scale2}.\nStep 3: This gives ${a1 * scale1}x + ${scaledB1}y = ${scaledC1} and ${a2 * scale2}x + ${scaledB2}y = ${scaledC2}.\nStep 4: Subtract the equations to eliminate x: ${yCoefficient}y = ${scaledC1 - scaledC2}, so y = ${yValue}.\nStep 5: Substitute y = ${yValue} into ${a1}x + ${b1}y = ${c1}.\nStep 6: ${a1}x + ${b1 * yValue} = ${c1}, so ${a1}x = ${c1 - (b1 * yValue)} and x = ${xValue}.\nStep 7: Therefore, x = ${xValue} and y = ${yValue}.`,
+    workingChecks: ["eliminate", "substitute", "x =", "y ="],
+    workingTip: "Show the elimination step clearly, then substitute back into one equation to find the second variable.",
+  };
+}
+
 function createQuestion() {
   const pool = state.mode === "mixed"
-    ? ["numbers", "fractions", "decimals", "percentages"]
+    ? ["numbers", "fractions", "decimals", "percentages", "simultaneous"]
     : [state.mode];
 
   const selectedMode = randomChoice(pool);
@@ -311,6 +348,8 @@ function createQuestion() {
       return { ...createDecimalQuestion(), family: selectedMode };
     case "percentages":
       return { ...createPercentageQuestion(), family: selectedMode };
+    case "simultaneous":
+      return { ...createSimultaneousQuestion(), family: selectedMode };
     default:
       return { ...createNumberQuestion(), family: "numbers" };
   }
@@ -494,19 +533,19 @@ function normaliseQuestion(question) {
 async function generateGeminiQuestion() {
   const selectedMode = state.mode === "mixed" ? "mixed Primary 6 mathematics topics" : `${state.mode} questions`;
     const prompt = [
-      "You are generating one mathematics practice question for a Primary 6 student.",
+      "You are generating one mathematics practice question for a student.",
       `Topic mode: ${selectedMode}.`,
       "Return only valid JSON with these keys:",
       'prompt, answer, hint, skill, workedSolution, workingTip, workingChecks',
       "Rules:",
-      "- Keep the question suitable for Primary 6.",
+      "- Keep the question suitable for the topic mode. Primary arithmetic topics should stay simple, but simultaneous equations can be secondary level.",
       "- Use plain text only.",
       "- The answer must be short and exact.",
       "- workedSolution must show the full method step by step for a child.",
       "- workingChecks must be an array of 2 to 4 short strings that should appear in good written working.",
       "- Do not include markdown fences.",
       "- Use one-step or two-step arithmetic only.",
-      "- Allowed topics: whole numbers, fractions, decimals, percentages.",
+      "- Allowed topics: whole numbers, fractions, decimals, percentages, simultaneous equations.",
   ].join("\n");
 
   const text = await askGemini(prompt);
@@ -623,7 +662,7 @@ async function analyseWhiteboardWithGemini() {
   const [, base64Data = ""] = dataUrl.split(",");
 
   const prompt = [
-    "You are reviewing a Primary 6 student's handwritten mathematics working from a whiteboard image.",
+    "You are reviewing a student's handwritten mathematics working from a whiteboard image.",
     "Return only valid JSON with keys:",
     'summary, stepReview, strengths, mistakes, nextSteps, hasError',
     `Question: ${state.currentQuestion.prompt}`,
