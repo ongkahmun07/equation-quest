@@ -52,11 +52,12 @@ const state = {
   currentQuestionSource: "local",
 };
 
-const boardContext = whiteboardCanvas.getContext("2d");
 const boardState = {
   strokes: [],
   currentStroke: null,
 };
+let boardStageInstance = null;
+let boardLayer = null;
 let isDrawing = false;
 let activePointerId = null;
 
@@ -646,7 +647,9 @@ async function loadQuestionWithGemini(options = {}) {
 }
 
 async function analyseWhiteboardWithGemini() {
-  const dataUrl = whiteboardCanvas.toDataURL("image/png");
+  const dataUrl = boardStageInstance
+    ? boardStageInstance.toDataURL({ pixelRatio: 1 })
+    : "";
   const [, base64Data = ""] = dataUrl.split(",");
 
   const prompt = [
@@ -707,24 +710,24 @@ function setMode(mode) {
 }
 
 function resizeCanvas() {
-  const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
   const frameBounds = whiteboardFrame.getBoundingClientRect();
   const canvasWidth = Math.max(frameBounds.width - 2, 960);
   const canvasHeight = window.innerWidth <= 720 ? 900 : 1050;
 
-  whiteboardCanvas.width = canvasWidth * ratio;
-  whiteboardCanvas.height = canvasHeight * ratio;
   whiteboardCanvas.style.width = `${canvasWidth}px`;
   whiteboardCanvas.style.height = `${canvasHeight}px`;
-  boardContext.setTransform(ratio, 0, 0, ratio, 0, 0);
-
-  clearBoard();
   whiteboardStage.style.minHeight = `${canvasHeight}px`;
+  ensureBoardStage(canvasWidth, canvasHeight);
   redrawBoard();
 }
 
 function clearBoard() {
-  boardContext.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+  if (!boardLayer) {
+    return;
+  }
+
+  boardLayer.destroyChildren();
+  boardLayer.draw();
 }
 
 function resetBoard() {
@@ -734,15 +737,11 @@ function resetBoard() {
 }
 
 function getPoint(event) {
-  const bounds = whiteboardCanvas.getBoundingClientRect();
-  return {
-    x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
-  };
-}
+  if (!boardStageInstance) {
+    return null;
+  }
 
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
+  return boardStageInstance.getPointerPosition();
 }
 
 function getBoardPoint(event) {
@@ -788,49 +787,59 @@ function configureBrush(point) {
   };
 }
 
+function ensureBoardStage(width, height) {
+  if (!window.Konva) {
+    throw new Error("Konva did not load.");
+  }
+
+  if (!boardStageInstance) {
+    boardStageInstance = new window.Konva.Stage({
+      container: "whiteboardCanvas",
+      width,
+      height,
+    });
+
+    boardLayer = new window.Konva.Layer();
+    boardStageInstance.add(boardLayer);
+    bindBoardStageEvents();
+  } else {
+    boardStageInstance.width(width);
+    boardStageInstance.height(height);
+  }
+
+  updateBoardInteractionMode();
+}
+
 function drawStrokePath(stroke) {
-  if (!stroke || stroke.points.length < 2) {
+  if (!stroke || stroke.points.length < 2 || !boardLayer) {
     return;
   }
 
-  boardContext.save();
-  boardContext.lineCap = "round";
-  boardContext.lineJoin = "round";
-  boardContext.imageSmoothingEnabled = true;
-  boardContext.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
-  boardContext.strokeStyle = stroke.color;
-  boardContext.lineWidth = stroke.strokeWidth;
-  boardContext.beginPath();
-  boardContext.moveTo(stroke.points[0], stroke.points[1]);
-
-  if (stroke.points.length === 2) {
-    boardContext.lineTo(stroke.points[0] + 0.01, stroke.points[1] + 0.01);
-  } else if (stroke.points.length === 4) {
-    boardContext.lineTo(stroke.points[2], stroke.points[3]);
-  } else {
-    for (let index = 2; index < stroke.points.length - 2; index += 2) {
-      const controlX = stroke.points[index];
-      const controlY = stroke.points[index + 1];
-      const endX = (controlX + stroke.points[index + 2]) / 2;
-      const endY = (controlY + stroke.points[index + 3]) / 2;
-      boardContext.quadraticCurveTo(controlX, controlY, endX, endY);
-    }
-
-    const finalIndex = stroke.points.length - 2;
-    boardContext.lineTo(stroke.points[finalIndex], stroke.points[finalIndex + 1]);
-  }
-
-  boardContext.stroke();
-  boardContext.restore();
+  boardLayer.add(new window.Konva.Line({
+    points: stroke.points,
+    stroke: stroke.color,
+    strokeWidth: stroke.strokeWidth,
+    lineCap: "round",
+    lineJoin: "round",
+    tension: 0.5,
+    globalCompositeOperation: stroke.tool === "eraser" ? "destination-out" : "source-over",
+    listening: false,
+  }));
 }
 
 function redrawBoard() {
+  if (!boardLayer) {
+    return;
+  }
+
   clearBoard();
   boardState.strokes.forEach(drawStrokePath);
 
   if (boardState.currentStroke) {
     drawStrokePath(boardState.currentStroke);
   }
+
+  boardLayer.draw();
 }
 
 function appendEventPointsToCurrentStroke(event) {
@@ -838,23 +847,37 @@ function appendEventPointsToCurrentStroke(event) {
     return;
   }
 
-  const events = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
+  const nativeEvent = event?.evt ?? event;
+  const events = typeof nativeEvent?.getCoalescedEvents === "function" ? nativeEvent.getCoalescedEvents() : [nativeEvent];
   for (const currentEvent of events) {
+    if (currentEvent && boardStageInstance?.setPointersPositions) {
+      boardStageInstance.setPointersPositions(currentEvent);
+    }
+
     const point = getBoardPoint(currentEvent);
+    if (!point) {
+      continue;
+    }
+
     boardState.currentStroke.points.push(point.x, point.y);
   }
 }
 
 function startDrawing(event) {
-  if (!shouldAcceptPointer(event)) {
+  const nativeEvent = event?.evt ?? event;
+
+  if (!shouldAcceptPointer(nativeEvent)) {
     return;
   }
 
-  event.preventDefault();
+  nativeEvent.preventDefault();
   isDrawing = true;
-  activePointerId = event.pointerId;
-  whiteboardCanvas.setPointerCapture(event.pointerId);
-  const point = getBoardPoint(event);
+  activePointerId = nativeEvent.pointerId ?? "mouse";
+  const point = getBoardPoint(nativeEvent);
+  if (!point) {
+    return;
+  }
+
   const brush = configureBrush(point);
 
   boardState.currentStroke = {
@@ -867,12 +890,10 @@ function startDrawing(event) {
 }
 
 function stopDrawing(event) {
-  if (!isDrawing || (event?.pointerId !== undefined && event.pointerId !== activePointerId)) {
-    return;
-  }
+  const nativeEvent = event?.evt ?? event;
 
-  if (event?.pointerId !== undefined) {
-    whiteboardCanvas.releasePointerCapture(event.pointerId);
+  if (!isDrawing || (nativeEvent?.pointerId !== undefined && nativeEvent.pointerId !== activePointerId)) {
+    return;
   }
 
   if (boardState.currentStroke) {
@@ -892,11 +913,52 @@ function setBoardTool(tool) {
     button.classList.toggle("is-active", button.dataset.tool === tool);
   });
 
-  whiteboardCanvas.classList.toggle("is-scroll-mode", tool === "scroll");
+  updateBoardInteractionMode();
 
   if (tool === "scroll") {
     stopDrawing();
   }
+}
+
+function updateBoardInteractionMode() {
+  whiteboardCanvas.classList.toggle("is-scroll-mode", state.boardTool === "scroll");
+
+  if (!boardStageInstance) {
+    return;
+  }
+
+  const container = boardStageInstance.container();
+  container.style.touchAction = state.boardTool === "scroll" ? "pan-x pan-y" : "none";
+  container.style.cursor = state.boardTool === "scroll" ? "grab" : "crosshair";
+}
+
+function bindBoardStageEvents() {
+  if (!boardStageInstance) {
+    return;
+  }
+
+  boardStageInstance.on("pointerdown", (event) => {
+    startDrawing(event);
+    if (!shouldAcceptPointer(event.evt)) {
+      warnNonPenInput();
+    }
+  });
+
+  boardStageInstance.on("pointermove", (event) => {
+    if (!isDrawing) {
+      return;
+    }
+
+    if ((event.evt?.pointerId ?? "mouse") !== activePointerId) {
+      return;
+    }
+
+    event.evt?.preventDefault();
+    appendEventPointsToCurrentStroke(event);
+    redrawBoard();
+  });
+
+  boardStageInstance.on("pointerup pointerleave pointercancel", stopDrawing);
 }
 
 skipButton.addEventListener("click", async () => {
@@ -954,32 +1016,6 @@ boardTools.addEventListener("click", (event) => {
   setBoardTool(button.dataset.tool);
 });
 
-whiteboardCanvas.addEventListener("pointerdown", (event) => {
-  startDrawing(event);
-});
-
-whiteboardCanvas.addEventListener("pointermove", (event) => {
-  if (!isDrawing) {
-    return;
-  }
-
-  if (event.pointerId !== activePointerId) {
-    return;
-  }
-
-  event.preventDefault();
-  appendEventPointsToCurrentStroke(event);
-  redrawBoard();
-});
-
-whiteboardCanvas.addEventListener("pointerup", stopDrawing);
-whiteboardCanvas.addEventListener("pointerleave", stopDrawing);
-whiteboardCanvas.addEventListener("pointercancel", stopDrawing);
-whiteboardCanvas.addEventListener("pointerdown", (event) => {
-  if (!shouldAcceptPointer(event)) {
-    warnNonPenInput();
-  }
-});
 whiteboardFrame.addEventListener("selectstart", (event) => {
   event.preventDefault();
 });

@@ -469,19 +469,30 @@ textarea {
   width: 100%;
   min-width: 900px;
   height: 1050px;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
   -webkit-tap-highlight-color: transparent;
 }
 
+#whiteboardCanvas,
+#whiteboardCanvas .konvajs-content,
+#whiteboardCanvas canvas {
+  touch-action: none;
+}
+
 #whiteboardCanvas {
   cursor: crosshair;
 }
 
-#whiteboardCanvas.is-scroll-mode {
+#whiteboardCanvas.is-scroll-mode,
+#whiteboardCanvas.is-scroll-mode .konvajs-content,
+#whiteboardCanvas.is-scroll-mode canvas {
   touch-action: pan-y pan-x;
+}
+
+#whiteboardCanvas.is-scroll-mode,
+#whiteboardCanvas.is-scroll-mode .konvajs-content {
   cursor: grab;
 }
 
