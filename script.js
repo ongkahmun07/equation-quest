@@ -58,6 +58,7 @@ const boardState = {
 };
 let boardStageInstance = null;
 let boardLayer = null;
+let currentStrokeShape = null;
 let isDrawing = false;
 let activePointerId = null;
 
@@ -727,12 +728,13 @@ function clearBoard() {
   }
 
   boardLayer.destroyChildren();
-  boardLayer.draw();
+  boardLayer.batchDraw();
 }
 
 function resetBoard() {
   boardState.strokes = [];
   boardState.currentStroke = null;
+  currentStrokeShape = null;
   clearBoard();
 }
 
@@ -783,7 +785,7 @@ function configureBrush(point) {
   return {
     tool: state.boardTool,
     color: "#f8fbff",
-    strokeWidth: state.boardTool === "eraser" ? 26 : 5,
+    strokeWidth: state.boardTool === "eraser" ? 24 : 4,
   };
 }
 
@@ -812,19 +814,24 @@ function ensureBoardStage(width, height) {
 
 function drawStrokePath(stroke) {
   if (!stroke || stroke.points.length < 2 || !boardLayer) {
-    return;
+    return null;
   }
 
-  boardLayer.add(new window.Konva.Line({
+  const shape = new window.Konva.Line({
     points: stroke.points,
     stroke: stroke.color,
     strokeWidth: stroke.strokeWidth,
     lineCap: "round",
     lineJoin: "round",
-    tension: 0.5,
+    tension: 0.35,
     globalCompositeOperation: stroke.tool === "eraser" ? "destination-out" : "source-over",
     listening: false,
-  }));
+    perfectDrawEnabled: false,
+    shadowForStrokeEnabled: false,
+    hitStrokeWidth: 0,
+  });
+  boardLayer.add(shape);
+  return shape;
 }
 
 function redrawBoard() {
@@ -839,7 +846,7 @@ function redrawBoard() {
     drawStrokePath(boardState.currentStroke);
   }
 
-  boardLayer.draw();
+  boardLayer.batchDraw();
 }
 
 function appendEventPointsToCurrentStroke(event) {
@@ -860,6 +867,10 @@ function appendEventPointsToCurrentStroke(event) {
     }
 
     boardState.currentStroke.points.push(point.x, point.y);
+  }
+
+  if (currentStrokeShape) {
+    currentStrokeShape.points(boardState.currentStroke.points);
   }
 }
 
@@ -886,7 +897,8 @@ function startDrawing(event) {
     strokeWidth: brush.strokeWidth,
     points: [point.x, point.y],
   };
-  redrawBoard();
+  currentStrokeShape = drawStrokePath(boardState.currentStroke);
+  boardLayer?.batchDraw();
 }
 
 function stopDrawing(event) {
@@ -901,9 +913,10 @@ function stopDrawing(event) {
     boardState.currentStroke = null;
   }
 
+  currentStrokeShape = null;
   isDrawing = false;
   activePointerId = null;
-  redrawBoard();
+  boardLayer?.batchDraw();
 }
 
 function setBoardTool(tool) {
@@ -955,7 +968,7 @@ function bindBoardStageEvents() {
 
     event.evt?.preventDefault();
     appendEventPointsToCurrentStroke(event);
-    redrawBoard();
+    boardLayer?.batchDraw();
   });
 
   boardStageInstance.on("pointerup pointerleave pointercancel", stopDrawing);
