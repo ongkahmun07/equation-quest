@@ -53,9 +53,11 @@ const state = {
 };
 
 const boardContext = whiteboardCanvas.getContext("2d");
+const boardState = {
+  strokes: [],
+  currentStroke: null,
+};
 let isDrawing = false;
-let lastDrawPoint = null;
-let lastMidPoint = null;
 let activePointerId = null;
 
 function randomInt(min, max) {
@@ -589,19 +591,6 @@ function updateScoreboard() {
   solvedValue.textContent = String(state.solved);
 }
 
-function captureCanvasSnapshot(sourceCanvas) {
-  if (!sourceCanvas.width || !sourceCanvas.height) {
-    return null;
-  }
-
-  const snapshot = document.createElement("canvas");
-  snapshot.width = sourceCanvas.width;
-  snapshot.height = sourceCanvas.height;
-  const snapshotContext = snapshot.getContext("2d");
-  snapshotContext.drawImage(sourceCanvas, 0, 0);
-  return snapshot;
-}
-
 function loadQuestion() {
   const usingQueuedQuestion = Boolean(state.queuedQuestion);
   state.currentQuestion = state.queuedQuestion || createQuestion();
@@ -639,7 +628,6 @@ async function loadQuestionWithGemini(options = {}) {
       equationText.textContent = state.currentQuestion.prompt;
       equationHint.textContent = state.currentQuestion.hint;
       setWorkingFeedback(state.currentQuestion.workingTip || tipsByMode[state.mode]);
-      clearOverlay();
       state.pendingQuestionAdvance = false;
       setStatus("Gemini question ready.", "is-success");
     }
@@ -723,7 +711,6 @@ function resizeCanvas() {
   const frameBounds = whiteboardFrame.getBoundingClientRect();
   const canvasWidth = Math.max(frameBounds.width - 2, 960);
   const canvasHeight = window.innerWidth <= 720 ? 900 : 1050;
-  const boardSnapshot = captureCanvasSnapshot(whiteboardCanvas);
 
   whiteboardCanvas.width = canvasWidth * ratio;
   whiteboardCanvas.height = canvasHeight * ratio;
@@ -733,24 +720,17 @@ function resizeCanvas() {
 
   clearBoard();
   whiteboardStage.style.minHeight = `${canvasHeight}px`;
-
-  if (boardSnapshot) {
-    boardContext.drawImage(
-      boardSnapshot,
-      0,
-      0,
-      boardSnapshot.width,
-      boardSnapshot.height,
-      0,
-      0,
-      whiteboardCanvas.width,
-      whiteboardCanvas.height,
-    );
-  }
+  redrawBoard();
 }
 
 function clearBoard() {
   boardContext.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+}
+
+function resetBoard() {
+  boardState.strokes = [];
+  boardState.currentStroke = null;
+  clearBoard();
 }
 
 function getPoint(event) {
@@ -766,37 +746,7 @@ function clamp(value, min, max) {
 }
 
 function getBoardPoint(event) {
-  const point = getPoint(event);
-  const pressure = typeof event.pressure === "number" && event.pressure > 0
-    ? clamp(event.pressure, 0.08, 1)
-    : 0.5;
-
-  return {
-    ...point,
-    pressure,
-  };
-}
-
-function getMidPoint(firstPoint, secondPoint) {
-  return {
-    x: (firstPoint.x + secondPoint.x) / 2,
-    y: (firstPoint.y + secondPoint.y) / 2,
-    pressure: (firstPoint.pressure + secondPoint.pressure) / 2,
-  };
-}
-
-function smoothPoint(point) {
-  if (!lastDrawPoint) {
-    return point;
-  }
-
-  const smoothing = state.boardTool === "eraser" ? 0.9 : 0.94;
-
-  return {
-    x: lastDrawPoint.x + (point.x - lastDrawPoint.x) * smoothing,
-    y: lastDrawPoint.y + (point.y - lastDrawPoint.y) * smoothing,
-    pressure: lastDrawPoint.pressure + (point.pressure - lastDrawPoint.pressure) * smoothing,
-  };
+  return getPoint(event);
 }
 
 function shouldAcceptPointer(event) {
@@ -831,58 +781,67 @@ function warnNonPenInput() {
 }
 
 function configureBrush(point) {
+  return {
+    tool: state.boardTool,
+    color: "#f8fbff",
+    strokeWidth: state.boardTool === "eraser" ? 26 : 5,
+  };
+}
+
+function drawStrokePath(stroke) {
+  if (!stroke || stroke.points.length < 2) {
+    return;
+  }
+
+  boardContext.save();
   boardContext.lineCap = "round";
   boardContext.lineJoin = "round";
   boardContext.imageSmoothingEnabled = true;
+  boardContext.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
+  boardContext.strokeStyle = stroke.color;
+  boardContext.lineWidth = stroke.strokeWidth;
+  boardContext.beginPath();
+  boardContext.moveTo(stroke.points[0], stroke.points[1]);
 
-  if (state.boardTool === "eraser") {
-    boardContext.globalCompositeOperation = "destination-out";
-    boardContext.lineWidth = 28;
+  if (stroke.points.length === 2) {
+    boardContext.lineTo(stroke.points[0] + 0.01, stroke.points[1] + 0.01);
+  } else if (stroke.points.length === 4) {
+    boardContext.lineTo(stroke.points[2], stroke.points[3]);
   } else {
-    boardContext.globalCompositeOperation = "source-over";
-    boardContext.strokeStyle = "#f8fbff";
-    boardContext.lineWidth = 4.2 + ((point?.pressure ?? 0.5) * 2.4);
+    for (let index = 2; index < stroke.points.length - 2; index += 2) {
+      const controlX = stroke.points[index];
+      const controlY = stroke.points[index + 1];
+      const endX = (controlX + stroke.points[index + 2]) / 2;
+      const endY = (controlY + stroke.points[index + 3]) / 2;
+      boardContext.quadraticCurveTo(controlX, controlY, endX, endY);
+    }
+
+    const finalIndex = stroke.points.length - 2;
+    boardContext.lineTo(stroke.points[finalIndex], stroke.points[finalIndex + 1]);
+  }
+
+  boardContext.stroke();
+  boardContext.restore();
+}
+
+function redrawBoard() {
+  clearBoard();
+  boardState.strokes.forEach(drawStrokePath);
+
+  if (boardState.currentStroke) {
+    drawStrokePath(boardState.currentStroke);
   }
 }
 
-function drawStrokeSegment(point) {
-  const nextPoint = smoothPoint(point);
-  configureBrush(nextPoint);
-
-  if (!lastDrawPoint) {
-    boardContext.beginPath();
-    boardContext.arc(nextPoint.x, nextPoint.y, boardContext.lineWidth / 2, 0, Math.PI * 2);
-    boardContext.fillStyle = state.boardTool === "eraser" ? "rgba(0,0,0,1)" : "#f8fbff";
-    boardContext.fill();
-    lastDrawPoint = nextPoint;
-    lastMidPoint = nextPoint;
+function appendEventPointsToCurrentStroke(event) {
+  if (!boardState.currentStroke) {
     return;
   }
 
-  boardContext.beginPath();
-  boardContext.moveTo(lastDrawPoint.x, lastDrawPoint.y);
-  boardContext.lineTo(nextPoint.x, nextPoint.y);
-  boardContext.stroke();
-  lastDrawPoint = nextPoint;
-  lastMidPoint = nextPoint;
-}
-
-function finishStroke() {
-  if (!lastDrawPoint || !lastMidPoint) {
-    return;
-  }
-
-  configureBrush(lastDrawPoint);
-  boardContext.beginPath();
-  boardContext.moveTo(lastDrawPoint.x, lastDrawPoint.y);
-  boardContext.lineTo(lastDrawPoint.x + 0.01, lastDrawPoint.y + 0.01);
-  boardContext.stroke();
-}
-
-function drawPoint(event) {
   const events = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
   for (const currentEvent of events) {
-    drawStrokeSegment(getBoardPoint(currentEvent));
+    const point = getBoardPoint(currentEvent);
+    boardState.currentStroke.points.push(point.x, point.y);
   }
 }
 
@@ -896,9 +855,15 @@ function startDrawing(event) {
   activePointerId = event.pointerId;
   whiteboardCanvas.setPointerCapture(event.pointerId);
   const point = getBoardPoint(event);
-  lastDrawPoint = point;
-  lastMidPoint = point;
-  drawStrokeSegment(point);
+  const brush = configureBrush(point);
+
+  boardState.currentStroke = {
+    tool: brush.tool,
+    color: brush.color,
+    strokeWidth: brush.strokeWidth,
+    points: [point.x, point.y],
+  };
+  redrawBoard();
 }
 
 function stopDrawing(event) {
@@ -910,11 +875,14 @@ function stopDrawing(event) {
     whiteboardCanvas.releasePointerCapture(event.pointerId);
   }
 
-  finishStroke();
+  if (boardState.currentStroke) {
+    boardState.strokes.push(boardState.currentStroke);
+    boardState.currentStroke = null;
+  }
+
   isDrawing = false;
-  lastDrawPoint = null;
-  lastMidPoint = null;
   activePointerId = null;
+  redrawBoard();
 }
 
 function setBoardTool(tool) {
@@ -974,7 +942,7 @@ boardTools.addEventListener("click", (event) => {
   }
 
   if (button.id === "clearBoardButton") {
-    clearBoard();
+    resetBoard();
     setStatus("Whiteboard cleared.", "");
     return;
   }
@@ -1000,7 +968,8 @@ whiteboardCanvas.addEventListener("pointermove", (event) => {
   }
 
   event.preventDefault();
-  drawPoint(event);
+  appendEventPointsToCurrentStroke(event);
+  redrawBoard();
 });
 
 whiteboardCanvas.addEventListener("pointerup", stopDrawing);
